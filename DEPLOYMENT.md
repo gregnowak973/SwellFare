@@ -1,147 +1,96 @@
-# SwellFare Deployment Roadmap
+# Deployment Guide
 
-## Phase 1: GitHub Setup & Code Push
+## Prerequisites
 
-### 1. Create GitHub Repository
-1. Go to [github.com](https://github.com) and create a new repository named `SwellFare`
-2. **Don't** initialize with README (we already have one)
-3. Copy the repository URL
+- GitHub repository connected
+- Supabase project created
+- API keys: Stormglass, Amadeus
 
-### 2. Connect Local Repo to GitHub
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/SwellFare.git
-git branch -M main
-git push -u origin main
-```
+## Deploy to Vercel
 
-## Phase 2: Deploy to Vercel (Recommended for Next.js)
+### 1. Import Project
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import `SwellFare` from GitHub
+3. Click "Deploy" (Vercel auto-detects Next.js)
 
-### 1. Deploy via Vercel Dashboard
-1. Go to [vercel.com](https://vercel.com) and sign in with GitHub
-2. Click "New Project"
-3. Import your `SwellFare` repository
-4. Vercel will auto-detect Next.js settings
+### 2. Environment Variables
 
-### 2. Configure Environment Variables in Vercel
-Add these in Vercel project settings → Environment Variables:
+**Navigate:** Vercel → Your Project → Settings → Environment Variables
 
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-STORMGLASS_API_KEY=your_stormglass_api_key
-AMADEUS_CLIENT_ID=your_amadeus_client_id
-AMADEUS_CLIENT_SECRET=your_amadeus_secret
-```
+**Add these 5 variables:**
+
+1. **NEXT_PUBLIC_SUPABASE_URL**
+   - Value: Your Supabase project URL (e.g., `https://xxxxx.supabase.co`)
+   - Get from: Supabase Dashboard → Settings → API → Project URL
+
+2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**
+   - Value: Supabase anon public key (JWT token starting with `eyJ...`)
+   - Get from: Supabase Dashboard → Settings → API → `anon` `public` key
+
+3. **STORMGLASS_API_KEY**
+   - Value: Your Stormglass API key
+   - Get from: [stormglass.io](https://stormglass.io) → API Keys
+
+4. **AMADEUS_CLIENT_ID**
+   - Value: Your Amadeus Client ID
+   - Get from: [developers.amadeus.com](https://developers.amadeus.com) → My Apps
+
+5. **AMADEUS_CLIENT_SECRET**
+   - Value: Your Amadeus Client Secret
+   - Get from: Same as above
+
+**Important:** 
+- Use actual values, NOT `@secret` references
+- Select all environments: ✅ Production ✅ Preview ✅ Development
+- Click "Save" after each variable
 
 ### 3. Connect Domain (swellfare.ai)
-1. In Vercel project settings → Domains
-2. Add `swellfare.ai` and `www.swellfare.ai`
-3. Vercel will provide DNS records to add in Cloudflare
 
-## Phase 3: Cloudflare Domain Configuration
+**In Vercel:**
+1. Settings → Domains → Add `swellfare.ai`
+2. Add `www.swellfare.ai` (optional)
+3. Copy DNS records shown
 
-### 1. Update DNS Records in Cloudflare
-Add these DNS records in Cloudflare dashboard:
+**In Cloudflare:**
+1. DNS → Add records:
+   - **Root domain:** A record pointing to Vercel IP (or CNAME if shown)
+   - **www:** CNAME to `cname.vercel-dns.com`
+2. Enable Proxy (orange cloud) ✅
+3. SSL/TLS → Set to "Full" ✅
+4. Enable "Always Use HTTPS" ✅
 
-**Type A Record:**
-- Name: `@` (or `swellfare.ai`)
-- Content: Vercel's IP (Vercel will provide this)
-- Proxy: Enabled (orange cloud)
+**Wait 5-10 minutes** for DNS propagation.
 
-**Type CNAME Record:**
-- Name: `www`
-- Content: `cname.vercel-dns.com`
-- Proxy: Enabled
+### 4. Database Setup
 
-**Note:** Vercel will provide exact DNS values after you add the domain
-
-### 2. SSL/TLS Settings
-- Set SSL/TLS encryption mode to **Full** or **Full (strict)**
-- Enable **Always Use HTTPS**
-
-## Phase 4: Database Setup
-
-### 1. Set Up Supabase Project
-1. Go to [supabase.com](https://supabase.com)
-2. Create new project
-3. Copy Project URL and anon key
-
-### 2. Run Migrations
-1. Go to Supabase SQL Editor
+1. Go to Supabase Dashboard → SQL Editor
 2. Run `supabase/migrations/001_initial_schema.sql`
 3. Run `supabase/migrations/002_discovery_features.sql`
+4. Verify tables are created
 
-### 3. Seed Initial Data (Optional)
-- Insert Golden 20 destinations
-- Verify board_bag_fees are populated
+### 5. Redeploy
 
-## Phase 5: API Keys Setup
+After adding environment variables:
+- Deployments → "..." → Redeploy
 
-### 1. Stormglass API
-1. Sign up at [stormglass.io](https://stormglass.io)
-2. Get your API key
-3. Add to Vercel environment variables
+## Post-Deployment Checklist
 
-### 2. Amadeus API
-1. Sign up at [developers.amadeus.com](https://developers.amadeus.com)
-2. Create a new app
-3. Get Client ID and Secret
-4. Add to Vercel environment variables
+- [ ] Site loads at `swellfare.ai`
+- [ ] HTTPS is working (green lock)
+- [ ] Environment variables are set
+- [ ] Database migrations are run
+- [ ] Test all features
+- [ ] Check browser console for errors
 
-## Phase 6: Production Checklist
+## Troubleshooting
 
-### Immediate
-- [ ] Push code to GitHub
-- [ ] Deploy to Vercel
-- [ ] Configure domain in Cloudflare
-- [ ] Set up environment variables
-- [ ] Run database migrations
-- [ ] Test live site
+**Build fails:** Check build logs in Vercel dashboard
+**Environment variables not working:** Redeploy after adding variables
+**Domain not working:** Wait 5-10 minutes for DNS propagation
+**SSL errors:** Check Cloudflare SSL/TLS settings
 
-### Post-Launch
-- [ ] Set up cron jobs for data fetching (Vercel Cron or external service)
-- [ ] Configure email service for Strike Alerts (Resend, SendGrid)
-- [ ] Set up error monitoring (Sentry)
-- [ ] Add analytics (Vercel Analytics or Google Analytics)
-- [ ] Test all features on production
-- [ ] Set up backup strategy for database
+## Next Steps
 
-## Phase 7: Data Population
-
-### Set Up Automated Data Fetching
-Create API routes or cron jobs to:
-1. Fetch swell data from Stormglass daily
-2. Fetch flight prices from Amadeus (multiple times per day)
-3. Update `swell_data` and `flight_fares` tables
-4. Check `strike_alerts` and send notifications
-
-## Quick Start Commands
-
-```bash
-# Push to GitHub (after creating repo)
-git remote add origin https://github.com/YOUR_USERNAME/SwellFare.git
-git push -u origin main
-
-# After Vercel deployment, verify
-curl https://swellfare.ai
-```
-
-## Recommended Services
-
-- **Hosting**: Vercel (free tier, perfect for Next.js)
-- **Database**: Supabase (free tier, PostgreSQL)
-- **Email**: Resend (developer-friendly) or SendGrid
-- **Monitoring**: Sentry (error tracking)
-- **Analytics**: Vercel Analytics (built-in)
-
-## Next Immediate Steps
-
-1. **Create GitHub repo** and push code
-2. **Deploy to Vercel** (takes 2 minutes)
-3. **Configure domain** in Cloudflare
-4. **Set up Supabase** and run migrations
-5. **Add API keys** to Vercel
-6. **Test the live site**
-
-Your domain `swellfare.ai` is ready - let's get it live! 🚀
-
+- Set up cron jobs for data fetching (optional)
+- Configure email service for Strike Alerts (optional)
+- Monitor usage and scale as needed
