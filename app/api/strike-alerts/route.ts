@@ -72,6 +72,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const supabase = getSupabaseClient();
+
     const { data, error } = await supabase
       .from('strike_alerts')
       .select('*')
