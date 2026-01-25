@@ -198,8 +198,8 @@ export const GOLDEN_20_DESTINATIONS: DestinationMapping[] = [
   
   // Pacific Islands
   {
-    name: 'Teahupo''o, Tahiti',
-    surfSpotName: 'Teahupo''o',
+    name: "Teahupo'o, Tahiti",
+    surfSpotName: "Teahupo'o",
     airportCode: 'PPT',
     latitude: -17.8667,
     longitude: -149.2667,
