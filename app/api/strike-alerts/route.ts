@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 // Use Node.js runtime for Supabase client compatibility
 export const runtime = 'nodejs';
@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const supabase = getSupabaseClient();
 
     // Insert or update strike alert
     const { data, error } = await supabase
