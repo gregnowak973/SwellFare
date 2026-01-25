@@ -94,7 +94,7 @@ export function StrikeAlerts() {
           </div>
           <p className="text-white font-semibold mb-2">Alert Set!</p>
           <p className="text-slate-400 text-sm">
-            We'll notify you when a Prime Strike matches your criteria.
+            We&apos;ll notify you when a Prime Strike matches your criteria.
           </p>
         </div>
       ) : (

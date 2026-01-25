@@ -125,7 +125,7 @@ export const GOLDEN_20_DESTINATIONS: DestinationMapping[] = [
   },
   {
     name: 'Ericeira, Portugal',
-    surfSpotName: 'Ribeira d''Ilhas',
+    surfSpotName: "Ribeira d'Ilhas",
     airportCode: 'LIS',
     latitude: 39.0167,
     longitude: -9.4167,
