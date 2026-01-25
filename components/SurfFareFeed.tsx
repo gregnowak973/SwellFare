@@ -9,20 +9,18 @@ export interface SurfFareFeedProps {
 
 export function SurfFareFeed({ deals }: SurfFareFeedProps) {
   // Separate Prime Strikes from regular deals
-  const primeStrikes = deals.filter(deal => {
-    // Convert height from meters to feet for comparison (3ft = 0.91m)
+  const primeStrikes = deals.filter((deal) => {
     const heightInMeters = deal.swellHeight;
     return heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500;
   });
 
-  const regularDeals = deals.filter(deal => {
+  const regularDeals = deals.filter((deal) => {
     const heightInMeters = deal.swellHeight;
     return !(heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500);
   });
 
   return (
     <div>
-      {/* Prime Strikes Section */}
       {primeStrikes.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -31,7 +29,7 @@ export function SurfFareFeed({ deals }: SurfFareFeedProps) {
               ⚡ Prime Strikes
             </h2>
             <span className="px-3 py-1 bg-yellow-400/20 text-yellow-400 rounded-full text-xs font-semibold border border-yellow-400/30">
-              Swell > 3ft • Period > 10s • Flight < $500
+              Swell &gt; 3ft • Period &gt; 10s • Flight &lt; $500
             </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -49,7 +47,6 @@ export function SurfFareFeed({ deals }: SurfFareFeedProps) {
         </div>
       )}
 
-      {/* Regular Feed */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp className="w-6 h-6 text-deep-sea-accent" />
