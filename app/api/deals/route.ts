@@ -63,9 +63,9 @@ export async function GET(request: NextRequest) {
 
         if (!swell) continue;
 
-        // Categorize swell
+        // Categorize swell and check if it matches the desired type
         const categorized = categorizeSwell(swell, desire);
-        if (categorized.type !== desire) continue; // Filter by desire
+        if (!categorized.isMatch) continue; // Filter by desire - only include if it matches
 
         // Fetch flight price
         const flight = await getCheapestFlight(
