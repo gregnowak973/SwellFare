@@ -330,7 +330,7 @@ export function Dashboard() {
       // We have data, clear error
       setError(null);
     }
-  }, [desire, barrelDeals, logDeals, loadedTypes]);, [desire]); // Re-fetch when desire changes
+  }, [desire, barrelDeals, logDeals, loadedTypes]);
 
   // Filter deals by current surf desire and get top 10
   // The deals array already contains the correct type (from cache), but filter to be safe
