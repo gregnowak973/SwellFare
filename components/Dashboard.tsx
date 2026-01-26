@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DealCard, DealCardProps } from './DealCard';
 import { DesireToggle } from './DesireToggle';
 import { SurfFareFeed } from './SurfFareFeed';
@@ -8,7 +8,7 @@ import { BoardBagCalculator } from './BoardBagCalculator';
 import { StrikeAlerts } from './StrikeAlerts';
 import { SurfDesire } from '@/lib/surfLogic';
 
-// Mock data - includes Prime Strikes and regular deals
+// Mock data - fallback when API is not available
 const mockDeals: DealCardProps[] = [
   // Prime Strikes (Swell > 3ft AND Period > 10s AND Flight < $500)
   {
@@ -156,9 +156,43 @@ const mockDeals: DealCardProps[] = [
 
 export function Dashboard() {
   const [desire, setDesire] = useState<SurfDesire>('barrel');
+  const [deals, setDeals] = useState<DealCardProps[]>(mockDeals);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch real deals from API
+  useEffect(() => {
+    async function fetchDeals() {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/deals?desire=${desire}&limit=10`);
+        const data = await response.json();
+
+        if (data.deals && data.deals.length > 0) {
+          setDeals(data.deals);
+          setError(null);
+        } else {
+          // Fall back to mock data if API returns no deals
+          setDeals(mockDeals);
+          if (data.message) {
+            setError(data.message);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching deals:', err);
+        // Fall back to mock data on error
+        setDeals(mockDeals);
+        setError('Failed to load real-time data. Showing sample data.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDeals();
+  }, [desire]);
 
   // Filter deals by current surf desire and get top 10
-  const filteredDeals = mockDeals
+  const filteredDeals = deals
     .filter(deal => deal.swellType === desire)
     .sort((a, b) => b.valueScore - a.valueScore)
     .slice(0, 10);
@@ -172,6 +206,16 @@ export function Dashboard() {
           <p className="text-slate-400 text-lg">
             Discovery engine for surfers: Find cheap flights to perfect swells
           </p>
+          {error && (
+            <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+              <p className="text-yellow-400 text-sm">{error}</p>
+            </div>
+          )}
+          {loading && (
+            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+              <p className="text-blue-400 text-sm">Loading real-time surf and flight data...</p>
+            </div>
+          )}
         </div>
 
         {/* Top Row: Skill Filter and Strike Alerts */}
