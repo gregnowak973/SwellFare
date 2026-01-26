@@ -191,6 +191,7 @@ export function Dashboard() {
           dealsCount: data.deals?.length || 0,
           message: data.message,
           timestamp: data.timestamp,
+          debug: data.debug,
         });
 
         if (data.deals && data.deals.length > 0) {
@@ -203,11 +204,16 @@ export function Dashboard() {
           const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
           console.log('Using mock data (filtered):', filteredMock.length);
           setDeals(filteredMock);
+          
+          // Build detailed error message
+          let errorMsg = 'No deals found. Showing sample data.';
           if (data.message) {
-            setError(data.message);
-          } else {
-            setError('No deals found. Showing sample data.');
+            errorMsg = data.message;
           }
+          if (data.debug) {
+            errorMsg += ` (Debug: ${JSON.stringify(data.debug)})`;
+          }
+          setError(errorMsg);
         }
       } catch (err) {
         console.error('Error fetching deals:', err);

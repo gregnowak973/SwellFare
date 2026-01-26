@@ -38,6 +38,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         deals: [],
         message: 'API keys not configured. Please add STORMGLASS_API_KEY, AMADEUS_CLIENT_ID, and AMADEUS_CLIENT_SECRET to environment variables. Showing sample data.',
+        debug: {
+          stormglassConfigured: !!stormglassKey,
+          amadeusConfigured: !!(amadeusClientId && amadeusClientSecret),
+        },
       });
     }
 
@@ -136,7 +140,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       deals: topDeals,
       count: topDeals.length,
-      timestamp: new Date().toISOString(), // Add timestamp to show data freshness
+      timestamp: new Date().toISOString(),
+      debug: {
+        destinationsChecked: maxDestinationsToCheck,
+        dealsFound: deals.length,
+        filteredByDesire: desire,
+      },
     }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
