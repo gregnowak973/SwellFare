@@ -1,6 +1,17 @@
-# SwellFare MVP - Discovery Engine
+# SwellFare 🌊✈️
 
-A discovery-focused MVP that helps surfers find cheap flights to destinations with active swells, without the complexity of a full booking engine.
+**Find cheap flights to perfect swells.** A discovery engine that matches your surf desire (Barrels vs. Longboard) with flight deals to destinations with active swells.
+
+**Live at:** [swellfare.ai](https://swellfare.ai)
+
+## 🎯 What It Does
+
+SwellFare helps surfers discover the best surf-and-flight deals by calculating a **Value Score** that combines:
+- Wave height and period
+- Wind alignment (offshore/onshore)
+- Flight price
+
+The higher the score, the better the deal!
 
 ## MVP Features
 
