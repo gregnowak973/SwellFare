@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const desire = (searchParams.get('desire') || 'barrel') as 'barrel' | 'log';
     const originCode = searchParams.get('origin') || 'LAX';
     const limit = parseInt(searchParams.get('limit') || '10');
+    const useCache = searchParams.get('cache') !== 'false'; // Default to using cache
 
     // Get API keys from environment
     const stormglassKey = process.env.STORMGLASS_API_KEY;
@@ -35,7 +36,6 @@ export async function GET(request: NextRequest) {
     const amadeusClientSecret = process.env.AMADEUS_CLIENT_SECRET;
 
     if (!stormglassKey || !amadeusClientId || !amadeusClientSecret) {
-      // Return immediately with message if APIs not configured
       return NextResponse.json({
         deals: [],
         message: 'API keys not configured. Please add STORMGLASS_API_KEY, AMADEUS_CLIENT_ID, and AMADEUS_CLIENT_SECRET to environment variables. Showing sample data.',
@@ -44,6 +44,68 @@ export async function GET(request: NextRequest) {
           amadeusConfigured: !!(amadeusClientId && amadeusClientSecret),
         },
       });
+    }
+
+    // Try to get deals from database first (if cache is enabled)
+    if (useCache) {
+      try {
+        const supabase = getSupabaseClient();
+        const now = new Date();
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+        // Get deals from database (swell data from last hour, matching flight fares)
+        const { data: cachedDeals, error: dbError } = await supabase
+          .from('swell_fare_deals')
+          .select('*')
+          .eq('swell_type', desire)
+          .gte('swell_timestamp', oneHourAgo.toISOString())
+          .order('value_score', { ascending: false })
+          .limit(limit);
+
+        if (!dbError && cachedDeals && cachedDeals.length > 0) {
+          // Transform database format to API format
+          const transformedDeals = cachedDeals.map((deal: any) => ({
+            destination: deal.destination_name,
+            airportCode: deal.airport_code,
+            price: parseFloat(deal.price),
+            currency: deal.currency,
+            swellHeight: deal.swell_height,
+            swellPeriod: deal.swell_period,
+            swellType: deal.swell_type,
+            valueScore: deal.value_score,
+            departureDate: deal.departure_date,
+            returnDate: deal.return_date,
+            windSpeed: deal.wind_speed,
+            windDirection: deal.wind_direction,
+            primeStrike: isPrimeStrike({
+              swellHeight: deal.swell_height,
+              swellPeriod: deal.swell_period,
+              flightPrice: parseFloat(deal.price),
+            }),
+          }));
+
+          return NextResponse.json({
+            deals: transformedDeals,
+            count: transformedDeals.length,
+            timestamp: new Date().toISOString(),
+            source: 'database',
+            debug: {
+              destinationsChecked: 'cached',
+              dealsFound: transformedDeals.length,
+              filteredByDesire: desire,
+            },
+          }, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+            },
+          });
+        }
+      } catch (cacheError) {
+        // If cache fails, fall through to API calls
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Cache miss or error, fetching from API:', cacheError);
+        }
+      }
     }
 
     const deals = [];
