@@ -167,8 +167,9 @@ export async function GET(request: NextRequest) {
           return null;
         }
 
-        // Fetch flight price
-        const flight = await getCheapestFlight(
+        // Fetch flight prices - get multiple options, not just cheapest
+        // Amadeus returns up to 10 flights, we'll use the cheapest 3 for variety
+        const flights = await searchFlights(
           {
             originCode,
             destinationCode: dest.airportCode,
@@ -182,59 +183,69 @@ export async function GET(request: NextRequest) {
           }
         );
 
-        // Validate flight data
-        if (!flight || !validateFlightOffer(flight)) {
+        // Filter valid flights and sort by price
+        const validFlights = flights
+          .filter(flight => validateFlightOffer(flight))
+          .map(flight => ({
+            ...flight,
+            price: parseFloat(flight.price.total),
+          }))
+          .filter(flight => !isNaN(flight.price) && flight.price > 0)
+          .sort((a, b) => a.price - b.price)
+          .slice(0, 3); // Use top 3 cheapest flights for variety
+
+        if (validFlights.length === 0) {
           return null;
         }
 
-        const price = parseFloat(flight.price.total);
-        if (isNaN(price) || price <= 0) {
-          return null;
-        }
+        // Create deals for each valid flight (up to 3 per destination)
+        return validFlights.map(flight => {
+          const price = flight.price;
 
-        // Calculate wind alignment
-        const windAlignment = calculateWindAlignment(
-          swell.windDirection || 0,
-          dest.idealSwellDirection
-        );
+          // Calculate wind alignment
+          const windAlignment = calculateWindAlignment(
+            swell.windDirection || 0,
+            dest.idealSwellDirection
+          );
 
-        // Calculate value score
-        const valueScore = calculateValueScore(
-          swell.height,
-          swell.period,
-          windAlignment,
-          price
-        );
+          // Calculate value score
+          const valueScore = calculateValueScore(
+            swell.height,
+            swell.period,
+            windAlignment,
+            price
+          );
 
-        // Check if Prime Strike
-        const primeStrike = isPrimeStrike({
-          swellHeight: swell.height,
-          swellPeriod: swell.period,
-          flightPrice: price,
-        });
+          // Check if Prime Strike
+          const primeStrike = isPrimeStrike({
+            swellHeight: swell.height,
+            swellPeriod: swell.period,
+            flightPrice: price,
+          });
 
-        const deal = {
-          destination: dest.name,
-          airportCode: dest.airportCode,
-          price,
-          currency: 'USD',
-          swellHeight: swell.height,
-          swellPeriod: swell.period,
-          swellType: swellType,
-          valueScore,
-          departureDate: departureDate.toISOString().split('T')[0],
-          returnDate: returnDate.toISOString().split('T')[0],
-          windSpeed: swell.windSpeed || 0,
-          windDirection: swell.windDirection || 0,
-          primeStrike,
-        };
+          const deal = {
+            destination: dest.name,
+            airportCode: dest.airportCode,
+            price,
+            currency: 'USD',
+            swellHeight: swell.height,
+            swellPeriod: swell.period,
+            swellType: swellType,
+            valueScore,
+            departureDate: departureDate.toISOString().split('T')[0],
+            returnDate: returnDate.toISOString().split('T')[0],
+            windSpeed: swell.windSpeed || 0,
+            windDirection: swell.windDirection || 0,
+            primeStrike,
+          };
 
-        // Validate final deal
-        if (!validateDeal(deal)) {
-          return null;
-        }
+          // Validate final deal
+          if (!validateDeal(deal)) {
+            return null;
+          }
 
-        return deal;
+          return deal;
+        }).filter((deal): deal is NonNullable<typeof deal> => deal !== null);
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
           console.error(`Error fetching data for ${dest.name}:`, error);
@@ -258,6 +269,7 @@ export async function GET(request: NextRequest) {
     // Collect statistics about why deals weren't found
     const stats = {
       destinationsChecked: maxDestinationsToCheck,
+      totalDestinations: GOLDEN_20_DESTINATIONS.length,
       dealsFound: deals.length,
       filteredByDesire: desire,
       message: deals.length === 0 
