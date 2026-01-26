@@ -3,7 +3,7 @@ import { getSupabaseClient } from '@/lib/supabase';
 import { fetchCurrentSwell } from '@/lib/api/stormglass';
 import { getCheapestFlight } from '@/lib/api/amadeus';
 import { GOLDEN_20_DESTINATIONS } from '@/lib/destinations';
-import { categorizeSwell, calculateValueScore, calculateWindAlignment } from '@/lib/surfLogic';
+import { categorizeSwell, calculateValueScore, calculateWindAlignment, isBarrelCondition, isLogCondition } from '@/lib/surfLogic';
 import { isPrimeStrike } from '@/lib/strikeLogic';
 import { validateSwellData, validateFlightOffer, validateDeal } from '@/lib/validation';
 
@@ -133,14 +133,37 @@ export async function GET(request: NextRequest) {
           return null;
         }
 
-        // Categorize swell and check if it matches the desired type
-        const categorized = categorizeSwell(swell, desire);
-        if (!categorized.isMatch) {
-          // Debug: Log why it doesn't match (only in development)
+        // Categorize swell - be more lenient: show deals even if they don't perfectly match
+        // We'll categorize based on actual conditions, not strict matching
+        const barrelMatch = isBarrelCondition(swell);
+        const logMatch = isLogCondition(swell);
+        
+        // Determine which type this swell is closest to
+        let swellType: 'barrel' | 'log';
+        if (barrelMatch && logMatch) {
+          // If it matches both, prefer the one requested
+          swellType = desire;
+        } else if (barrelMatch) {
+          swellType = 'barrel';
+        } else if (logMatch) {
+          swellType = 'log';
+        } else {
+          // If it doesn't match either, assign based on height (taller = barrel, shorter = log)
+          swellType = swell.height > 1.0 ? 'barrel' : 'log';
+        }
+        
+        // Include deals that match the desired type OR are close enough
+        // This ensures we always show something, even if conditions aren't perfect
+        const matchesDesire = swellType === desire || 
+          (desire === 'barrel' && swell.height > 0.5 && swell.period > 7) ||
+          (desire === 'log' && swell.height < 2.0 && swell.period > 5);
+        
+        if (!matchesDesire) {
+          // Only skip if it's really far from the desired type
           if (process.env.NODE_ENV === 'development') {
             console.log(`${dest.name}: Swell doesn't match ${desire} - Height: ${swell.height}m, Period: ${swell.period}s`);
           }
-          return null; // Filter by desire - only include if it matches
+          return null;
         }
 
         // Fetch flight price
@@ -196,7 +219,7 @@ export async function GET(request: NextRequest) {
           currency: 'USD',
           swellHeight: swell.height,
           swellPeriod: swell.period,
-          swellType: categorized.type,
+          swellType: swellType,
           valueScore,
           departureDate: departureDate.toISOString().split('T')[0],
           returnDate: returnDate.toISOString().split('T')[0],

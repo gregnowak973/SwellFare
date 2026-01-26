@@ -156,41 +156,62 @@ const mockDeals: DealCardProps[] = [
 
 export function Dashboard() {
   const [desire, setDesire] = useState<SurfDesire>('barrel');
-  const [deals, setDeals] = useState<DealCardProps[]>(mockDeals);
+  // Cache deals for both types separately to avoid reloading when switching
+  const [barrelDeals, setBarrelDeals] = useState<DealCardProps[]>([]);
+  const [logDeals, setLogDeals] = useState<DealCardProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedTypes, setLoadedTypes] = useState<Set<'barrel' | 'log'>>(new Set());
 
-  // Fetch real deals from API with debouncing
+  // Get current deals based on desire - instant switch, no re-fetching
+  const deals = useMemo(() => {
+    const cached = desire === 'barrel' ? barrelDeals : logDeals;
+    if (cached.length > 0) {
+      return cached;
+    }
+    // Fallback to mock data while loading
+    return mockDeals.filter(deal => deal.swellType === desire);
+  }, [desire, barrelDeals, logDeals]);
+
+  // Fetch deals for both types on initial load only
   useEffect(() => {
     let isMounted = true;
-    const controller = new AbortController();
-    let timeoutId: NodeJS.Timeout | null = null;
-    let debounceTimer: NodeJS.Timeout | null = null;
+    const controllers = {
+      barrel: new AbortController(),
+      log: new AbortController(),
+    };
+    const timeouts: { barrel: NodeJS.Timeout | null; log: NodeJS.Timeout | null } = {
+      barrel: null,
+      log: null,
+    };
 
-    async function fetchDeals() {
+    async function fetchDealsForType(type: SurfDesire) {
       try {
         if (!isMounted) return;
         
-        setLoading(true);
+        // Only show loading on initial load (when nothing is cached yet)
+        if (!loadedTypes.has('barrel') && !loadedTypes.has('log')) {
+          setLoading(true);
+        }
         setError(null);
         
         // Add timeout to prevent hanging
-        timeoutId = setTimeout(() => {
+        timeouts[type] = setTimeout(() => {
           if (isMounted) {
-            controller.abort();
+            controllers[type].abort();
           }
         }, 30000); // 30 second timeout
 
-        // Add cache-busting timestamp to ensure fresh data
+        // Fetch with cache=false to force API calls if database cache is empty
         const timestamp = Date.now();
-        const response = await fetch(`/api/deals?desire=${desire}&limit=10&_t=${timestamp}`, {
-          signal: controller.signal,
-          cache: 'no-store', // Prevent caching
+        const response = await fetch(`/api/deals?desire=${type}&limit=10&cache=false&_t=${timestamp}`, {
+          signal: controllers[type].signal,
+          cache: 'no-store',
         });
         
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
+        if (timeouts[type]) {
+          clearTimeout(timeouts[type]!);
+          timeouts[type] = null;
         }
 
         if (!response.ok) {
@@ -200,83 +221,119 @@ export function Dashboard() {
 
         const data = await response.json();
         
-        // Check if component is still mounted
         if (!isMounted) return;
 
         if (data.deals && data.deals.length > 0) {
           if (process.env.NODE_ENV === 'development') {
-            console.log('✅ Setting real deals:', data.deals.length, 'for', desire);
+            console.log(`✅ Setting real deals for ${type}:`, data.deals.length);
           }
-          setDeals(data.deals);
+          if (type === 'barrel') {
+            setBarrelDeals(data.deals);
+          } else {
+            setLogDeals(data.deals);
+          }
           setError(null);
         } else {
           // Fall back to mock data if API returns no deals
-          // Filter mock data by desire
-          const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
+          const filteredMock = mockDeals.filter(deal => deal.swellType === type);
           if (process.env.NODE_ENV === 'development') {
-            console.log('⚠️ Using mock data (filtered):', filteredMock.length, 'for', desire);
-          }
-          setDeals(filteredMock);
-          
-          // Build detailed error message with helpful guidance
-          let errorMsg = 'No deals found. Showing sample data.';
-          if (data.debug?.message) {
-            errorMsg = data.debug.message;
-          } else if (data.message) {
-            errorMsg = data.message;
+            console.log(`⚠️ Using mock data for ${type}:`, filteredMock.length);
           }
           
-          // Add helpful suggestion
-          if (data.debug?.dealsFound === 0 && data.debug?.filteredByDesire) {
-            const otherDesire = data.debug.filteredByDesire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels';
-            errorMsg += ` 💡 Tip: Try switching to "${otherDesire}" for more options, or visit /api/debug-deals to see current conditions.`;
+          if (type === 'barrel') {
+            setBarrelDeals(filteredMock);
+          } else {
+            setLogDeals(filteredMock);
           }
           
-          setError(errorMsg);
+          // Only show error if it's for the currently selected type
+          if (type === desire) {
+            let errorMsg = 'No deals found. Showing sample data.';
+            if (data.debug?.message) {
+              errorMsg = data.debug.message;
+            } else if (data.message) {
+              errorMsg = data.message;
+            }
+            setError(errorMsg);
+          }
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('❌ Error fetching deals:', err);
+          console.error(`❌ Error fetching deals for ${type}:`, err);
         }
-        // Fall back to mock data on error - filter by desire
         if (!isMounted) return;
-        const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
-        setDeals(filteredMock);
-        if (err instanceof Error && err.name === 'AbortError') {
-          setError('Request timed out. Showing sample data. API may be slow or unavailable.');
+        
+        // Fall back to mock data on error
+        const filteredMock = mockDeals.filter(deal => deal.swellType === type);
+        if (type === 'barrel') {
+          setBarrelDeals(filteredMock);
         } else {
-          setError('Failed to load real-time data. Showing sample data.');
+          setLogDeals(filteredMock);
+        }
+        
+        // Only show error if it's for the currently selected type
+        if (type === desire) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            setError('Request timed out. Showing sample data. API may be slow or unavailable.');
+          } else {
+            setError('Failed to load real-time data. Showing sample data.');
+          }
         }
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        // Mark this type as loaded
+        setLoadedTypes(prev => {
+          const updated = new Set([...prev, type]);
+          if (isMounted && updated.size === 2) {
+            // Both types loaded, hide loading
+            setLoading(false);
+          } else if (isMounted && updated.size === 1 && type === desire) {
+            // At least one type loaded, and it's the current desire, hide loading
+            setLoading(false);
+          }
+          return updated;
+        });
       }
     }
 
-    // Debounce rapid filter changes (300ms)
-    debounceTimer = setTimeout(() => {
-      if (isMounted) {
-        fetchDeals();
-      }
-    }, 300);
+    // Fetch both types in parallel on initial load
+    fetchDealsForType('barrel');
+    fetchDealsForType('log');
 
     // Cleanup function
     return () => {
       isMounted = false;
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (timeouts.barrel) {
+        clearTimeout(timeouts.barrel);
       }
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (timeouts.log) {
+        clearTimeout(timeouts.log);
       }
-      controller.abort();
+      controllers.barrel.abort();
+      controllers.log.abort();
     };
-  }, [desire]); // Re-fetch when desire changes
+  }, []); // Only run once on mount
+
+  // Update error message when switching filters - NO API CALLS, just UI updates
+  useEffect(() => {
+    // This effect ONLY runs when switching filters (desire changes)
+    // It does NOT trigger any API calls - data is already cached
+    const currentDeals = desire === 'barrel' ? barrelDeals : logDeals;
+    
+    // Ensure loading is always false when switching (data is cached)
+    setLoading(false);
+    
+    if (currentDeals.length === 0 && loadedTypes.has(desire)) {
+      // This type was loaded but has no deals
+      const otherType = desire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels';
+      setError(`No ${desire} deals found. Try switching to "${otherType}" for more options.`);
+    } else if (currentDeals.length > 0) {
+      // We have data, clear error
+      setError(null);
+    }
+  }, [desire, barrelDeals, logDeals, loadedTypes]);, [desire]); // Re-fetch when desire changes
 
   // Filter deals by current surf desire and get top 10
-  // Note: API already filters by desire, but we filter again in case of mock data fallback
-  // Also ensures UI updates immediately when deals change
+  // The deals array already contains the correct type (from cache), but filter to be safe
   const filteredDeals = useMemo(() => {
     return deals
       .filter(deal => deal.swellType === desire)
