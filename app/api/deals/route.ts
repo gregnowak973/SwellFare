@@ -8,6 +8,10 @@ import { isPrimeStrike } from '@/lib/strikeLogic';
 
 export const runtime = 'nodejs';
 
+// Disable caching for real-time data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/deals
  * Fetch real-time surf-fare deals by fetching swell data and flight prices
@@ -132,6 +136,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       deals: topDeals,
       count: topDeals.length,
+      timestamp: new Date().toISOString(), // Add timestamp to show data freshness
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     });
   } catch (error) {
     console.error('Error fetching deals:', error);

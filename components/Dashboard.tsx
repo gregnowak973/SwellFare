@@ -171,8 +171,11 @@ export function Dashboard() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-        const response = await fetch(`/api/deals?desire=${desire}&limit=10`, {
+        // Add cache-busting timestamp to ensure fresh data
+        const timestamp = Date.now();
+        const response = await fetch(`/api/deals?desire=${desire}&limit=10&_t=${timestamp}`, {
           signal: controller.signal,
+          cache: 'no-store', // Prevent caching
         });
         
         clearTimeout(timeoutId);
@@ -210,7 +213,7 @@ export function Dashboard() {
     }
 
     fetchDeals();
-  }, [desire]);
+  }, [desire]); // Re-fetch when desire changes, [desire]);
 
   // Filter deals by current surf desire and get top 10
   const filteredDeals = deals
