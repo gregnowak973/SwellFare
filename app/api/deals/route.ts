@@ -74,6 +74,10 @@ export async function GET(request: NextRequest) {
         // Categorize swell and check if it matches the desired type
         const categorized = categorizeSwell(swell, desire);
         if (!categorized.isMatch) {
+          // Debug: Log why it doesn't match (only in development)
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`${dest.name}: Swell doesn't match ${desire} - Height: ${swell.height}m, Period: ${swell.period}s`);
+          }
           return null; // Filter by desire - only include if it matches
         }
 
