@@ -4,7 +4,7 @@
  */
 
 import { SwellData } from '@/lib/surfLogic';
-import type { AmadeusFlightOffer } from './amadeus';
+import type { AmadeusFlightOffer } from '@/lib/api/amadeus';
 
 /**
  * Validate Stormglass swell data
