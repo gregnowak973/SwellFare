@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchCurrentSwell } from '@/lib/api/stormglass';
-import { getCheapestFlight } from '@/lib/api/amadeus';
+import { getCheapestFlight, searchFlights } from '@/lib/api/amadeus';
 import { GOLDEN_20_DESTINATIONS } from '@/lib/destinations';
 import { categorizeSwell, calculateValueScore, calculateWindAlignment, isBarrelCondition, isLogCondition } from '@/lib/surfLogic';
 import { isPrimeStrike } from '@/lib/strikeLogic';
@@ -114,8 +114,9 @@ export async function GET(request: NextRequest) {
     const returnDate = new Date(departureDate);
     returnDate.setDate(returnDate.getDate() + 7); // 7 day trip
 
-    // Limit destinations to check (to avoid timeout)
-    const maxDestinationsToCheck = Math.min(limit + 5, 10);
+    // Check all destinations (we have 20, but can increase if needed)
+    // Increased from 10 to allow more flight options
+    const maxDestinationsToCheck = Math.min(limit * 2, GOLDEN_20_DESTINATIONS.length);
     const destinationsToCheck = GOLDEN_20_DESTINATIONS.slice(0, maxDestinationsToCheck);
     
     // PARALLELIZE API CALLS for better performance
@@ -243,8 +244,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Wait for all promises and filter out nulls
+    // Each destination can return multiple deals (one per flight option)
     const results = await Promise.all(destinationPromises);
-    const validDeals = results.filter((deal): deal is NonNullable<typeof deal> => deal !== null);
+    const validDeals = results
+      .flat() // Flatten array of arrays (each destination can have multiple deals)
+      .filter((deal): deal is NonNullable<typeof deal> => deal !== null);
     deals.push(...validDeals);
 
     // Sort by value score and limit
