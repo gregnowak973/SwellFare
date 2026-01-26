@@ -30,10 +30,10 @@ export async function GET(request: NextRequest) {
     const amadeusClientSecret = process.env.AMADEUS_CLIENT_SECRET;
 
     if (!stormglassKey || !amadeusClientId || !amadeusClientSecret) {
-      // Return mock data if APIs not configured
+      // Return immediately with message if APIs not configured
       return NextResponse.json({
         deals: [],
-        message: 'API keys not configured. Please add STORMGLASS_API_KEY, AMADEUS_CLIENT_ID, and AMADEUS_CLIENT_SECRET to environment variables.',
+        message: 'API keys not configured. Please add STORMGLASS_API_KEY, AMADEUS_CLIENT_ID, and AMADEUS_CLIENT_SECRET to environment variables. Showing sample data.',
       });
     }
 
@@ -43,8 +43,12 @@ export async function GET(request: NextRequest) {
     const returnDate = new Date(departureDate);
     returnDate.setDate(returnDate.getDate() + 7); // 7 day trip
 
+    // Limit destinations to check (to avoid timeout)
+    // Check top 10 destinations first, then expand if needed
+    const maxDestinationsToCheck = Math.min(limit + 5, 10);
+    
     // Fetch data for each destination
-    for (const dest of GOLDEN_20_DESTINATIONS.slice(0, limit * 2)) { // Fetch more to filter
+    for (const dest of GOLDEN_20_DESTINATIONS.slice(0, maxDestinationsToCheck)) {
       try {
         // Fetch current swell data
         const swell = await fetchCurrentSwell(

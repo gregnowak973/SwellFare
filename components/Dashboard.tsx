@@ -165,7 +165,22 @@ export function Dashboard() {
     async function fetchDeals() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/deals?desire=${desire}&limit=10`);
+        setError(null);
+        
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const response = await fetch(`/api/deals?desire=${desire}&limit=10`, {
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
+        }
+
         const data = await response.json();
 
         if (data.deals && data.deals.length > 0) {
@@ -176,13 +191,19 @@ export function Dashboard() {
           setDeals(mockDeals);
           if (data.message) {
             setError(data.message);
+          } else {
+            setError('No deals found. Showing sample data.');
           }
         }
       } catch (err) {
         console.error('Error fetching deals:', err);
         // Fall back to mock data on error
         setDeals(mockDeals);
-        setError('Failed to load real-time data. Showing sample data.');
+        if (err instanceof Error && err.name === 'AbortError') {
+          setError('Request timed out. Showing sample data. API may be slow or unavailable.');
+        } else {
+          setError('Failed to load real-time data. Showing sample data.');
+        }
       } finally {
         setLoading(false);
       }
@@ -213,7 +234,9 @@ export function Dashboard() {
           )}
           {loading && (
             <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-              <p className="text-blue-400 text-sm">Loading real-time surf and flight data...</p>
+              <p className="text-blue-400 text-sm">
+                Loading real-time surf and flight data... This may take 10-30 seconds.
+              </p>
             </div>
           )}
         </div>
