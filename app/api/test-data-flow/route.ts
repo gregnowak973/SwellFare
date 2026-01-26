@@ -40,43 +40,81 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const flow = {
+    const flow: {
+      step1_stormglass: {
+        started: boolean;
+        completed: boolean;
+        error: string | null;
+        rawData: any;
+        validated: boolean;
+      };
+      step2_categorization: {
+        started: boolean;
+        completed: boolean;
+        error: string | null;
+        categorized: any;
+        matchesDesire: boolean;
+      };
+      step3_amadeus: {
+        started: boolean;
+        completed: boolean;
+        error: string | null;
+        rawData: any;
+        validated: boolean;
+        price: number | null;
+      };
+      step4_calculations: {
+        started: boolean;
+        completed: boolean;
+        error: string | null;
+        windAlignment: number | null;
+        valueScore: number | null;
+        primeStrike: boolean;
+      };
+      step5_final_deal: {
+        completed: boolean;
+        deal: any;
+        validated: boolean;
+        uiReady: boolean;
+        error: string | null;
+      };
+    } = {
       step1_stormglass: {
         started: true,
         completed: false,
-        error: null as string | null,
-        rawData: null as any,
+        error: null,
+        rawData: null,
         validated: false,
       },
       step2_categorization: {
         started: false,
         completed: false,
-        error: null as string | null,
-        categorized: null as any,
+        error: null,
+        categorized: null,
         matchesDesire: false,
       },
       step3_amadeus: {
         started: false,
         completed: false,
-        error: null as string | null,
-        rawData: null as any,
+        error: null,
+        rawData: null,
         validated: false,
-        price: null as number | null,
+        price: null,
       },
       step4_calculations: {
         started: false,
         completed: false,
-        error: null as string | null,
-        windAlignment: null as number | null,
-        valueScore: null as number | null,
+        error: null,
+        windAlignment: null,
+        valueScore: null,
         primeStrike: false,
       },
       step5_final_deal: {
         completed: false,
-        deal: null as any,
+        deal: null,
         validated: false,
         uiReady: false,
-        error: null as string | null,
+        error: null,
       },
     };
 
