@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DealCard, DealCardProps } from './DealCard';
 import { DesireToggle } from './DesireToggle';
 import { SurfFareFeed } from './SurfFareFeed';
@@ -160,16 +160,19 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch real deals from API
+  // Fetch real deals from API with debouncing
   useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
+    let timeoutId: NodeJS.Timeout;
+
     async function fetchDeals() {
       try {
         setLoading(true);
         setError(null);
         
         // Add timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
         // Add cache-busting timestamp to ensure fresh data
         const timestamp = Date.now();
@@ -193,6 +196,9 @@ export function Dashboard() {
           timestamp: data.timestamp,
           debug: data.debug,
         });
+
+        // Check if component is still mounted
+        if (!isMounted) return;
 
         if (data.deals && data.deals.length > 0) {
           console.log('Setting real deals:', data.deals.length);
@@ -227,19 +233,35 @@ export function Dashboard() {
           setError('Failed to load real-time data. Showing sample data.');
         }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
-    fetchDeals();
+    // Debounce rapid filter changes (300ms)
+    const debounceTimer = setTimeout(() => {
+      fetchDeals();
+    }, 300);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      clearTimeout(debounceTimer);
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [desire]); // Re-fetch when desire changes
 
   // Filter deals by current surf desire and get top 10
   // Note: API already filters by desire, but we filter again in case of mock data fallback
-  const filteredDeals = deals
-    .filter(deal => deal.swellType === desire)
-    .sort((a, b) => b.valueScore - a.valueScore)
-    .slice(0, 10);
+  // Also ensures UI updates immediately when deals change
+  const filteredDeals = useMemo(() => {
+    return deals
+      .filter(deal => deal.swellType === desire)
+      .sort((a, b) => b.valueScore - a.valueScore)
+      .slice(0, 10);
+  }, [deals, desire]);
 
   // Debug logging
   useEffect(() => {

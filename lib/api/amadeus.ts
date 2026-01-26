@@ -47,7 +47,7 @@ const DEFAULT_BASE_URL = 'https://test.api.amadeus.com';
  * Get OAuth access token from Amadeus API
  * Note: This function uses Buffer which requires Node.js runtime
  */
-async function getAmadeusToken(config: AmadeusConfig): Promise<string> {
+export async function getAmadeusToken(config: AmadeusConfig): Promise<string> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
   
   // Use btoa for browser compatibility or Buffer for Node.js
@@ -82,10 +82,24 @@ async function getAmadeusToken(config: AmadeusConfig): Promise<string> {
  */
 export async function searchFlights(
   params: AmadeusFlightSearchParams,
-  config: AmadeusConfig
+  config: AmadeusConfig,
+  useCache: boolean = true
 ): Promise<AmadeusFlightOffer[]> {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
-  const token = await getAmadeusToken(config);
+  
+  // Use cached token if available (imported dynamically to avoid circular deps)
+  let token: string;
+  if (useCache) {
+    try {
+      const { getCachedAmadeusToken } = await import('./amadeus-cache');
+      token = await getCachedAmadeusToken(config);
+    } catch {
+      // Fallback to direct call if cache module not available
+      token = await getAmadeusToken(config);
+    }
+  } else {
+    token = await getAmadeusToken(config);
+  }
 
   const searchParams = new URLSearchParams({
     originLocationCode: params.originCode,

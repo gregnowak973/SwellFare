@@ -48,10 +48,6 @@ export async function fetchSwellData(
       },
     });
 
-    if (!response.ok) {
-      throw new Error(`Stormglass API error: ${response.statusText}`);
-    }
-
     const data: StormglassResponse = await response.json();
     
     return data.hours
@@ -74,7 +70,17 @@ export async function fetchSwellData(
       })
       .filter((swell): swell is SwellData => swell !== null);
   } catch (error) {
-    console.error('Error fetching swell data:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching swell data:', errorMessage);
+    
+    // Provide more helpful error messages
+    if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+      throw new Error('Stormglass API rate limit exceeded. Please try again later.');
+    }
+    if (errorMessage.includes('401') || errorMessage.includes('403')) {
+      throw new Error('Stormglass API authentication failed. Check your API key.');
+    }
+    
     throw error;
   }
 }

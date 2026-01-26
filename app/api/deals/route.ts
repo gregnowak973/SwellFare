@@ -5,6 +5,7 @@ import { getCheapestFlight } from '@/lib/api/amadeus';
 import { GOLDEN_20_DESTINATIONS } from '@/lib/destinations';
 import { categorizeSwell, calculateValueScore, calculateWindAlignment } from '@/lib/surfLogic';
 import { isPrimeStrike } from '@/lib/strikeLogic';
+import { validateSwellData, validateFlightOffer, validateDeal } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -52,11 +53,11 @@ export async function GET(request: NextRequest) {
     returnDate.setDate(returnDate.getDate() + 7); // 7 day trip
 
     // Limit destinations to check (to avoid timeout)
-    // Check top 10 destinations first, then expand if needed
     const maxDestinationsToCheck = Math.min(limit + 5, 10);
+    const destinationsToCheck = GOLDEN_20_DESTINATIONS.slice(0, maxDestinationsToCheck);
     
-    // Fetch data for each destination
-    for (const dest of GOLDEN_20_DESTINATIONS.slice(0, maxDestinationsToCheck)) {
+    // PARALLELIZE API CALLS for better performance
+    const destinationPromises = destinationsToCheck.map(async (dest) => {
       try {
         // Fetch current swell data
         const swell = await fetchCurrentSwell(
@@ -65,11 +66,16 @@ export async function GET(request: NextRequest) {
           { apiKey: stormglassKey }
         );
 
-        if (!swell) continue;
+        // Validate swell data
+        if (!swell || !validateSwellData(swell)) {
+          return null;
+        }
 
         // Categorize swell and check if it matches the desired type
         const categorized = categorizeSwell(swell, desire);
-        if (!categorized.isMatch) continue; // Filter by desire - only include if it matches
+        if (!categorized.isMatch) {
+          return null; // Filter by desire - only include if it matches
+        }
 
         // Fetch flight price
         const flight = await getCheapestFlight(
@@ -86,9 +92,15 @@ export async function GET(request: NextRequest) {
           }
         );
 
-        if (!flight) continue;
+        // Validate flight data
+        if (!flight || !validateFlightOffer(flight)) {
+          return null;
+        }
 
         const price = parseFloat(flight.price.total);
+        if (isNaN(price) || price <= 0) {
+          return null;
+        }
 
         // Calculate wind alignment
         const windAlignment = calculateWindAlignment(
@@ -111,7 +123,7 @@ export async function GET(request: NextRequest) {
           flightPrice: price,
         });
 
-        deals.push({
+        const deal = {
           destination: dest.name,
           airportCode: dest.airportCode,
           price,
@@ -125,13 +137,24 @@ export async function GET(request: NextRequest) {
           windSpeed: swell.windSpeed || 0,
           windDirection: swell.windDirection || 0,
           primeStrike,
-        });
+        };
+
+        // Validate final deal
+        if (!validateDeal(deal)) {
+          return null;
+        }
+
+        return deal;
       } catch (error) {
         console.error(`Error fetching data for ${dest.name}:`, error);
-        // Continue to next destination
-        continue;
+        return null;
       }
-    }
+    });
+
+    // Wait for all promises and filter out nulls
+    const results = await Promise.all(destinationPromises);
+    const validDeals = results.filter((deal): deal is NonNullable<typeof deal> => deal !== null);
+    deals.push(...validDeals);
 
     // Sort by value score and limit
     deals.sort((a, b) => b.valueScore - a.valueScore);
