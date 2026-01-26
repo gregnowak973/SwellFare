@@ -164,15 +164,22 @@ export function Dashboard() {
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | null = null;
+    let debounceTimer: NodeJS.Timeout | null = null;
 
     async function fetchDeals() {
       try {
+        if (!isMounted) return;
+        
         setLoading(true);
         setError(null);
         
         // Add timeout to prevent hanging
-        timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        timeoutId = setTimeout(() => {
+          if (isMounted) {
+            controller.abort();
+          }
+        }, 30000); // 30 second timeout
 
         // Add cache-busting timestamp to ensure fresh data
         const timestamp = Date.now();
@@ -181,34 +188,34 @@ export function Dashboard() {
           cache: 'no-store', // Prevent caching
         });
         
-        clearTimeout(timeoutId);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
 
         if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`API error (${response.status}): ${errorText || response.statusText}`);
         }
 
         const data = await response.json();
         
-        console.log('API response:', {
-          desire,
-          dealsCount: data.deals?.length || 0,
-          message: data.message,
-          timestamp: data.timestamp,
-          debug: data.debug,
-        });
-
         // Check if component is still mounted
         if (!isMounted) return;
 
         if (data.deals && data.deals.length > 0) {
-          console.log('Setting real deals:', data.deals.length);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ Setting real deals:', data.deals.length, 'for', desire);
+          }
           setDeals(data.deals);
           setError(null);
         } else {
           // Fall back to mock data if API returns no deals
           // Filter mock data by desire
           const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
-          console.log('Using mock data (filtered):', filteredMock.length);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('⚠️ Using mock data (filtered):', filteredMock.length, 'for', desire);
+          }
           setDeals(filteredMock);
           
           // Build detailed error message
@@ -222,10 +229,12 @@ export function Dashboard() {
           setError(errorMsg);
         }
       } catch (err) {
-        console.error('Error fetching deals:', err);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Error fetching deals:', err);
+        }
         // Fall back to mock data on error - filter by desire
+        if (!isMounted) return;
         const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
-        console.log('Error - using filtered mock data:', filteredMock.length);
         setDeals(filteredMock);
         if (err instanceof Error && err.name === 'AbortError') {
           setError('Request timed out. Showing sample data. API may be slow or unavailable.');
@@ -240,15 +249,21 @@ export function Dashboard() {
     }
 
     // Debounce rapid filter changes (300ms)
-    const debounceTimer = setTimeout(() => {
-      fetchDeals();
+    debounceTimer = setTimeout(() => {
+      if (isMounted) {
+        fetchDeals();
+      }
     }, 300);
 
     // Cleanup function
     return () => {
       isMounted = false;
-      clearTimeout(debounceTimer);
-      clearTimeout(timeoutId);
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       controller.abort();
     };
   }, [desire]); // Re-fetch when desire changes
@@ -263,15 +278,17 @@ export function Dashboard() {
       .slice(0, 10);
   }, [deals, desire]);
 
-  // Debug logging
+  // Debug logging (only in development)
   useEffect(() => {
-    console.log('Dashboard state:', {
-      desire,
-      dealsCount: deals.length,
-      filteredCount: filteredDeals.length,
-      loading,
-      error,
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Dashboard state:', {
+        desire,
+        dealsCount: deals.length,
+        filteredCount: filteredDeals.length,
+        loading,
+        error,
+      });
+    }
   }, [desire, deals, filteredDeals, loading, error]);
 
   return (
@@ -289,10 +306,13 @@ export function Dashboard() {
             </div>
           )}
           {loading && (
-            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-              <p className="text-blue-400 text-sm">
-                Loading real-time surf and flight data for <strong>{desire === 'barrel' ? 'Heaving Barrels' : 'Soft & Longboard'}</strong>... This may take 10-30 seconds.
-              </p>
+            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg animate-pulse">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-blue-400 text-sm">
+                  Loading real-time surf and flight data for <strong>{desire === 'barrel' ? 'Heaving Barrels' : 'Soft & Longboard'}</strong>... This may take 3-10 seconds.
+                </p>
+              </div>
             </div>
           )}
           <div className="mt-2 text-xs text-slate-500">
@@ -322,7 +342,7 @@ export function Dashboard() {
         </div>
 
         {/* Surf-Fare Feed */}
-        <div className="mb-8">
+        <div className="mb-8 transition-opacity duration-300">
           <SurfFareFeed deals={filteredDeals} />
         </div>
 

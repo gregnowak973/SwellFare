@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { DealCard, DealCardProps } from './DealCard';
 import { Zap, TrendingUp } from 'lucide-react';
 
@@ -9,15 +10,20 @@ export interface SurfFareFeedProps {
 
 export function SurfFareFeed({ deals }: SurfFareFeedProps) {
   // Separate Prime Strikes from regular deals
-  const primeStrikes = deals.filter((deal) => {
-    const heightInMeters = deal.swellHeight;
-    return heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500;
-  });
+  // Use useMemo to prevent recalculation on every render
+  const { primeStrikes, regularDeals } = React.useMemo(() => {
+    const prime = deals.filter((deal) => {
+      const heightInMeters = deal.swellHeight;
+      return heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500;
+    });
 
-  const regularDeals = deals.filter((deal) => {
-    const heightInMeters = deal.swellHeight;
-    return !(heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500);
-  });
+    const regular = deals.filter((deal) => {
+      const heightInMeters = deal.swellHeight;
+      return !(heightInMeters > 0.91 && deal.swellPeriod > 10 && deal.price < 500);
+    });
+
+    return { primeStrikes: prime, regularDeals: regular };
+  }, [deals]);
 
   return (
     <div>
@@ -34,9 +40,13 @@ export function SurfFareFeed({ deals }: SurfFareFeedProps) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {primeStrikes.map((deal, index) => (
-              <div key={`prime-${deal.destination}-${index}`} className="relative">
+              <div 
+                key={`prime-${deal.destination}-${deal.airportCode}-${index}`} 
+                className="relative animate-in fade-in slide-in-from-bottom-4 duration-300"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <div className="absolute -top-2 -right-2 z-10">
-                  <div className="bg-yellow-400 text-slate-900 px-3 py-1 rounded-full text-xs font-bold">
+                  <div className="bg-yellow-400 text-slate-900 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
                     PRIME STRIKE
                   </div>
                 </div>
@@ -59,7 +69,13 @@ export function SurfFareFeed({ deals }: SurfFareFeedProps) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {regularDeals.map((deal, index) => (
-            <DealCard key={`deal-${deal.destination}-${index}`} {...deal} />
+            <div
+              key={`deal-${deal.destination}-${deal.airportCode}-${index}`}
+              className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <DealCard {...deal} />
+            </div>
           ))}
         </div>
       </div>

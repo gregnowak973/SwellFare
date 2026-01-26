@@ -146,7 +146,9 @@ export async function GET(request: NextRequest) {
 
         return deal;
       } catch (error) {
-        console.error(`Error fetching data for ${dest.name}:`, error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`Error fetching data for ${dest.name}:`, error);
+        }
         return null;
       }
     });
@@ -177,9 +179,12 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching deals:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching deals:', errorMessage);
+    }
     return NextResponse.json(
-      { error: 'Failed to fetch deals', message: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch deals', message: errorMessage },
       { status: 500 }
     );
   }

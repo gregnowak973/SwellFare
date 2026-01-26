@@ -121,14 +121,35 @@ export async function searchFlights(
       },
     });
 
+    // Check response status BEFORE parsing JSON
     if (!response.ok) {
-      throw new Error(`Amadeus API error: ${response.statusText}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      let errorMessage = `Amadeus API error: ${response.status} ${response.statusText}`;
+      
+      // Try to parse error details if available
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          errorMessage = errorData.errors.map((e: any) => e.detail || e.title || e).join(', ');
+        } else if (errorData.error_description) {
+          errorMessage = errorData.error_description;
+        }
+      } catch {
+        // If JSON parsing fails, use the text as-is
+        if (errorText && errorText.length < 200) {
+          errorMessage = errorText;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     return data.data || [];
   } catch (error) {
-    console.error('Error fetching flight data:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching flight data:', error);
+    }
     throw error;
   }
 }
