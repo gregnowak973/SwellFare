@@ -166,15 +166,21 @@ export async function GET(request: NextRequest) {
     deals.sort((a, b) => b.valueScore - a.valueScore);
     const topDeals = deals.slice(0, limit);
 
+    // Collect statistics about why deals weren't found
+    const stats = {
+      destinationsChecked: maxDestinationsToCheck,
+      dealsFound: deals.length,
+      filteredByDesire: desire,
+      message: deals.length === 0 
+        ? `No ${desire} conditions found. Current swells may not meet the criteria (${desire === 'barrel' ? 'Height > 1.5m AND Period > 12s' : 'Height < 1.2m AND Period 8-11s'}). Try the other filter or check back later!`
+        : undefined,
+    };
+
     return NextResponse.json({
       deals: topDeals,
       count: topDeals.length,
       timestamp: new Date().toISOString(),
-      debug: {
-        destinationsChecked: maxDestinationsToCheck,
-        dealsFound: deals.length,
-        filteredByDesire: desire,
-      },
+      debug: stats,
     }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',

@@ -218,14 +218,20 @@ export function Dashboard() {
           }
           setDeals(filteredMock);
           
-          // Build detailed error message
+          // Build detailed error message with helpful guidance
           let errorMsg = 'No deals found. Showing sample data.';
-          if (data.message) {
+          if (data.debug?.message) {
+            errorMsg = data.debug.message;
+          } else if (data.message) {
             errorMsg = data.message;
           }
-          if (data.debug) {
-            errorMsg += ` (Debug: ${JSON.stringify(data.debug)})`;
+          
+          // Add helpful suggestion
+          if (data.debug?.dealsFound === 0 && data.debug?.filteredByDesire) {
+            const otherDesire = data.debug.filteredByDesire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels';
+            errorMsg += ` 💡 Tip: Try switching to "${otherDesire}" for more options, or visit /api/debug-deals to see current conditions.`;
           }
+          
           setError(errorMsg);
         }
       } catch (err) {
@@ -301,8 +307,22 @@ export function Dashboard() {
             Discovery engine for surfers: Find cheap flights to perfect swells
           </p>
           {error && (
-            <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-              <p className="text-yellow-400 text-sm">{error}</p>
+            <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-400 text-lg">⚠️</span>
+                <div className="flex-1">
+                  <p className="text-yellow-400 text-sm font-medium mb-1">No Real-Time Deals Found</p>
+                  <p className="text-yellow-300/80 text-sm">{error}</p>
+                  {error.includes('Try switching') && (
+                    <button
+                      onClick={() => setDesire(desire === 'barrel' ? 'log' : 'barrel')}
+                      className="mt-2 px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 rounded-md text-yellow-400 text-sm font-medium transition-colors"
+                    >
+                      Switch to {desire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
           {loading && (
