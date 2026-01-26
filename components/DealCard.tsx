@@ -1,7 +1,9 @@
 'use client';
 
-import { Waves, Plane, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { Waves, Plane, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { SurfDesire } from '@/lib/surfLogic';
+import { SwellChart } from './SwellChart';
 
 export interface DealCardProps {
   destination: string;
@@ -32,6 +34,8 @@ export function DealCard({
   windSpeed,
   windDirection,
 }: DealCardProps) {
+  const [showForecast, setShowForecast] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const isBarrel = swellType === 'barrel';
   const badgeColor = isBarrel 
     ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' 
@@ -102,6 +106,61 @@ export function DealCard({
             <span>{new Date(returnDate).toLocaleDateString()}</span>
           </div>
         </div>
+      </div>
+
+      {/* Forecast & History Toggles */}
+      <div className="border-t border-slate-700 pt-4 mt-4 space-y-2">
+        <button
+          onClick={() => setShowForecast(!showForecast)}
+          className="w-full flex items-center justify-between p-2 bg-slate-900/50 hover:bg-slate-900 rounded text-sm text-slate-300 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Waves className="w-4 h-4 text-cyan-400" />
+            <span>7-Day Forecast</span>
+          </span>
+          {showForecast ? (
+            <ChevronUp className="w-4 h-4" />
+          ) : (
+            <ChevronDown className="w-4 h-4" />
+          )}
+        </button>
+        
+        {showForecast && (
+          <div className="mt-2">
+            <SwellChart
+              airportCode={airportCode}
+              destination={destination}
+              type="forecast"
+              days={7}
+            />
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="w-full flex items-center justify-between p-2 bg-slate-900/50 hover:bg-slate-900 rounded text-sm text-slate-300 transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Waves className="w-4 h-4 text-emerald-400" />
+            <span>30-Day History</span>
+          </span>
+          {showHistory ? (
+            <ChevronUp className="w-4 h-4" />
+          ) : (
+            <ChevronDown className="w-4 h-4" />
+          )}
+        </button>
+        
+        {showHistory && (
+          <div className="mt-2">
+            <SwellChart
+              airportCode={airportCode}
+              destination={destination}
+              type="history"
+              days={30}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
