@@ -185,13 +185,24 @@ export function Dashboard() {
         }
 
         const data = await response.json();
+        
+        console.log('API response:', {
+          desire,
+          dealsCount: data.deals?.length || 0,
+          message: data.message,
+          timestamp: data.timestamp,
+        });
 
         if (data.deals && data.deals.length > 0) {
+          console.log('Setting real deals:', data.deals.length);
           setDeals(data.deals);
           setError(null);
         } else {
           // Fall back to mock data if API returns no deals
-          setDeals(mockDeals);
+          // Filter mock data by desire
+          const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
+          console.log('Using mock data (filtered):', filteredMock.length);
+          setDeals(filteredMock);
           if (data.message) {
             setError(data.message);
           } else {
@@ -200,8 +211,10 @@ export function Dashboard() {
         }
       } catch (err) {
         console.error('Error fetching deals:', err);
-        // Fall back to mock data on error
-        setDeals(mockDeals);
+        // Fall back to mock data on error - filter by desire
+        const filteredMock = mockDeals.filter(deal => deal.swellType === desire);
+        console.log('Error - using filtered mock data:', filteredMock.length);
+        setDeals(filteredMock);
         if (err instanceof Error && err.name === 'AbortError') {
           setError('Request timed out. Showing sample data. API may be slow or unavailable.');
         } else {
@@ -213,13 +226,25 @@ export function Dashboard() {
     }
 
     fetchDeals();
-  }, [desire]); // Re-fetch when desire changes, [desire]);
+  }, [desire]); // Re-fetch when desire changes
 
   // Filter deals by current surf desire and get top 10
+  // Note: API already filters by desire, but we filter again in case of mock data fallback
   const filteredDeals = deals
     .filter(deal => deal.swellType === desire)
     .sort((a, b) => b.valueScore - a.valueScore)
     .slice(0, 10);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard state:', {
+      desire,
+      dealsCount: deals.length,
+      filteredCount: filteredDeals.length,
+      loading,
+      error,
+    });
+  }, [desire, deals, filteredDeals, loading, error]);
 
   return (
     <div className="min-h-screen bg-deep-sea-bg">
@@ -238,10 +263,13 @@ export function Dashboard() {
           {loading && (
             <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
               <p className="text-blue-400 text-sm">
-                Loading real-time surf and flight data... This may take 10-30 seconds.
+                Loading real-time surf and flight data for <strong>{desire === 'barrel' ? 'Heaving Barrels' : 'Soft & Longboard'}</strong>... This may take 10-30 seconds.
               </p>
             </div>
           )}
+          <div className="mt-2 text-xs text-slate-500">
+            Showing {filteredDeals.length} {desire === 'barrel' ? 'barrel' : 'log'} deals
+          </div>
         </div>
 
         {/* Top Row: Skill Filter and Strike Alerts */}
