@@ -18,19 +18,21 @@ export interface CategorizedSwell extends SwellData {
 }
 
 /**
- * Barrels: Height > 1.5m AND Period > 12s
- * These conditions indicate powerful, hollow waves perfect for barrel riding
+ * Barrels: Height > 0.8m (~2.6ft) AND Period > 9s
+ * Relaxed criteria to show more results - users can filter visually
+ * Original strict criteria: Height > 1.5m AND Period > 12s
  */
 export function isBarrelCondition(swell: SwellData): boolean {
-  return swell.height > 1.5 && swell.period > 12;
+  return swell.height > 0.8 && swell.period > 9;
 }
 
 /**
- * Longboard (Log): Height < 1.2m AND Period between 8s and 11s
- * These conditions indicate smaller, longer-period waves perfect for longboarding
+ * Longboard (Log): Height < 1.8m AND Period between 6s and 14s
+ * Relaxed criteria to show more results - users can filter visually
+ * Original strict criteria: Height < 1.2m AND Period 8-11s
  */
 export function isLogCondition(swell: SwellData): boolean {
-  return swell.height < 1.2 && swell.period >= 8 && swell.period <= 11;
+  return swell.height < 1.8 && swell.period >= 6 && swell.period <= 14;
 }
 
 /**

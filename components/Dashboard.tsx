@@ -350,8 +350,8 @@ export function Dashboard() {
               <DesireToggle currentDesire={desire} onDesireChange={setDesire} />
               <p className="text-xs text-slate-500 mt-2">
                 {desire === 'barrel' 
-                  ? 'Prevents beginners from booking flights to heaving barrels'
-                  : 'Perfect for soft, longboard-friendly waves'
+                  ? 'Shows destinations with larger, more powerful waves (Height > 0.8m, Period > 9s)'
+                  : 'Shows destinations with smaller, longer-period waves (Height < 1.8m, Period 6-14s)'
                 }
               </p>
             </div>

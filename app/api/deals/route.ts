@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
       dealsFound: deals.length,
       filteredByDesire: desire,
       message: deals.length === 0 
-        ? `No ${desire} conditions found. Current swells may not meet the criteria (${desire === 'barrel' ? 'Height > 1.5m AND Period > 12s' : 'Height < 1.2m AND Period 8-11s'}). Try the other filter or check back later!`
+        ? `No ${desire} conditions found. Current swells may not meet the criteria (${desire === 'barrel' ? 'Height > 0.8m AND Period > 9s' : 'Height < 1.8m AND Period 6-14s'}). Try the other filter or check back later!`
         : undefined,
     };
 
