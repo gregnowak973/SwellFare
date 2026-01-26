@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         deal: null as any,
         validated: false,
         uiReady: false,
+        error: null as string | null,
       },
     };
 
