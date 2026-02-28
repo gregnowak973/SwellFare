@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 import { fetchCurrentSwell } from '@/lib/api/stormglass';
+import { checkSwellWindow } from '@/lib/api/swellWindow';
 import { getCheapestFlight, searchFlights } from '@/lib/api/amadeus';
 import { GOLDEN_20_DESTINATIONS } from '@/lib/destinations';
 import { categorizeSwell, calculateValueScore, calculateWindAlignment, isBarrelCondition, isLogCondition } from '@/lib/surfLogic';
@@ -114,55 +115,70 @@ export async function GET(request: NextRequest) {
     const returnDate = new Date(departureDate);
     returnDate.setDate(returnDate.getDate() + 7); // 7 day trip
 
-    // Check all destinations (we have 20, but can increase if needed)
-    // Increased from 10 to allow more flight options
-    const maxDestinationsToCheck = Math.min(limit * 2, GOLDEN_20_DESTINATIONS.length);
+    // Check fewer destinations initially to improve performance
+    // Process in batches to avoid overwhelming APIs
+    const maxDestinationsToCheck = Math.min(limit + 5, 10); // Check 10 max for faster response
     const destinationsToCheck = GOLDEN_20_DESTINATIONS.slice(0, maxDestinationsToCheck);
     
-    // PARALLELIZE API CALLS for better performance
-    const destinationPromises = destinationsToCheck.map(async (dest) => {
+    // Process destinations in smaller batches to avoid rate limits
+    const BATCH_SIZE = 3; // Process 3 at a time
+    const destinationPromises = destinationsToCheck.map(async (dest, index) => {
+      // Add small delay between batches to avoid rate limiting
+      if (index > 0 && index % BATCH_SIZE === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay between batches
+      }
       try {
-        // Fetch current swell data
-        const swell = await fetchCurrentSwell(
+        // Check 6-day window: 3 days back + 3 days forward (optimized for speed)
+        // Include destination if ANY time in this window has good surf
+        const windowResult = await checkSwellWindow(
           dest.latitude,
           dest.longitude,
+          3, // days back (reduced from 7 for faster API calls)
+          3, // days forward (reduced from 7 for faster API calls)
+          desire,
           { apiKey: stormglassKey }
         );
+
+        // Only include if there's good surf in the window
+        if (!windowResult.hasGoodSurf || !windowResult.bestConditions) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`${dest.name}: No good surf in 14-day window`);
+          }
+          return null;
+        }
+
+        // Use the best conditions from the window
+        const swell = windowResult.bestConditions;
 
         // Validate swell data
         if (!swell || !validateSwellData(swell)) {
           return null;
         }
 
-        // Categorize swell - be more lenient: show deals even if they don't perfectly match
-        // We'll categorize based on actual conditions, not strict matching
+        // Categorize swell based on best conditions found
         const barrelMatch = isBarrelCondition(swell);
         const logMatch = isLogCondition(swell);
         
         // Determine which type this swell is closest to
         let swellType: 'barrel' | 'log';
         if (barrelMatch && logMatch) {
-          // If it matches both, prefer the one requested
           swellType = desire;
         } else if (barrelMatch) {
           swellType = 'barrel';
         } else if (logMatch) {
           swellType = 'log';
         } else {
-          // If it doesn't match either, assign based on height (taller = barrel, shorter = log)
           swellType = swell.height > 1.0 ? 'barrel' : 'log';
         }
         
-        // Include deals that match the desired type OR are close enough
-        // This ensures we always show something, even if conditions aren't perfect
+        // Very lenient matching - show almost everything
         const matchesDesire = swellType === desire || 
-          (desire === 'barrel' && swell.height > 0.5 && swell.period > 7) ||
-          (desire === 'log' && swell.height < 2.0 && swell.period > 5);
+          (desire === 'barrel' && (swell.height > 0.2 || swell.period > 5)) ||
+          (desire === 'log' && swell.height < 3.5 && swell.period > 3);
         
         if (!matchesDesire) {
-          // Only skip if it's really far from the desired type
           if (process.env.NODE_ENV === 'development') {
-            console.log(`${dest.name}: Swell doesn't match ${desire} - Height: ${swell.height}m, Period: ${swell.period}s`);
+            console.log(`${dest.name}: Best conditions don't match ${desire} - Height: ${swell.height}m, Period: ${swell.period}s`);
           }
           return null;
         }
@@ -254,9 +270,23 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Wait for all promises and filter out nulls
+    // Wait for all promises with a timeout to prevent hanging
     // Each destination can return multiple deals (one per flight option)
-    const results = await Promise.all(destinationPromises);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout: API calls took too long')), 45000); // 45 second total timeout
+    });
+
+    const results = await Promise.race([
+      Promise.all(destinationPromises),
+      timeoutPromise,
+    ]).catch((error) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error in batch processing:', error);
+      }
+      // Return empty results if timeout or error
+      return [];
+    });
+
     const validDeals = results
       .flat() // Flatten array of arrays (each destination can have multiple deals)
       .filter((deal): deal is NonNullable<typeof deal> => deal !== null);

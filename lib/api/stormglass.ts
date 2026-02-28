@@ -42,11 +42,18 @@ export async function fetchSwellData(
   });
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
     const response = await fetch(`${baseUrl}/weather/point?${params}`, {
       headers: {
         'Authorization': config.apiKey,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Check response status BEFORE parsing JSON
     if (!response.ok) {
@@ -95,6 +102,11 @@ export async function fetchSwellData(
     
     if (process.env.NODE_ENV === 'development') {
       console.error('Error fetching swell data:', errorMessage);
+    }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && (error.name === 'AbortError' || errorMessage.includes('aborted'))) {
+      throw new Error('Stormglass API request timed out. The API may be slow or unavailable.');
     }
     
     // Provide more helpful error messages

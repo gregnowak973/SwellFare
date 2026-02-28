@@ -52,3 +52,4 @@ curl "https://swellfare.ai/api/test-deal?origin=JFK&desire=log"
 3. Check the responses
 4. If APIs work, your main site will show real data!
 
+

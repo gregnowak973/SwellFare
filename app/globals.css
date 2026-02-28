@@ -2,15 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet CSS - Required for map to work */
+@import 'leaflet/dist/leaflet.css';
+
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  --background: #0a0f1a;
+  --foreground: #f3f4f6;
+  --accent: #22d3ee;
+  --accent-emerald: #34d399;
+  --surface: #111827;
+  --border: #374151;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @layer utilities {
@@ -19,3 +28,24 @@ body {
   }
 }
 
+/* Leaflet map dark theme - moved from SurfMap inline styles */
+.surf-map-container .leaflet-container {
+  background: #0a0f1a;
+}
+.surf-map-popup .leaflet-popup-content-wrapper {
+  background: #1f2937;
+  color: white;
+  border-radius: 12px;
+  border: 1px solid #374151;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.surf-map-popup .leaflet-popup-tip {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+.surf-map-popup .leaflet-popup-close-button {
+  color: #9ca3af;
+}
+.surf-map-popup .leaflet-popup-close-button:hover {
+  color: white;
+}

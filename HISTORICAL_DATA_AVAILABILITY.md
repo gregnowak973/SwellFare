@@ -107,3 +107,4 @@ Looking at your codebase, you already have:
 - **Flight prices**: Need to build your own historical database ❌
 - **Your app**: Already set up to store historical data in Supabase ✅
 
+

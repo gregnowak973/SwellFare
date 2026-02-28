@@ -47,3 +47,4 @@
 
 **Bottom line:** You have a fully functional **discovery engine** that works with mock data. To make it production-ready, you need to connect real APIs and populate the database with actual surf and flight data.
 
+

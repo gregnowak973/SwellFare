@@ -1,16 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Mail, X } from 'lucide-react';
-
-export interface StrikeAlertFormData {
-  email: string;
-  destination: string;
-  originCode: string;
-  maxPrice: number;
-  minSwellHeight: number;
-  minPeriod: number;
-}
+import { Bell, Mail, X, Check } from 'lucide-react';
 
 export function StrikeAlerts() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,29 +13,20 @@ export function StrikeAlerts() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
-      // TODO: Get destinationId from destination name
-      // For now, using a placeholder - in production, you'd look this up
       const response = await fetch('/api/strike-alerts', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          destinationId: 'placeholder-id', // Replace with actual lookup
+          destinationId: 'placeholder-id',
           originCode: originCode.toUpperCase(),
           maxPrice,
-          minSwellHeight: 0.91, // 3ft
+          minSwellHeight: 0.91,
           minPeriod: 10,
         }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create alert');
-      }
-
+      if (!response.ok) throw new Error('Failed to create alert');
       setSubmitted(true);
       setTimeout(() => {
         setIsOpen(false);
@@ -54,8 +36,7 @@ export function StrikeAlerts() {
         setOriginCode('');
         setMaxPrice(500);
       }, 2000);
-    } catch (error) {
-      console.error('Error creating strike alert:', error);
+    } catch {
       alert('Failed to create alert. Please try again.');
     }
   };
@@ -64,115 +45,101 @@ export function StrikeAlerts() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-deep-sea-accent/20 text-deep-sea-accent border border-deep-sea-accent/30 rounded-lg hover:bg-deep-sea-accent/30 transition-all"
+        className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl bg-surf-accent/10 border border-surf-accent/30 hover:bg-surf-accent/15 hover:border-surf-accent/40 text-surf-accent font-medium transition-all duration-200"
       >
         <Bell className="w-5 h-5" />
-        <span className="font-medium">Set Strike Alert</span>
+        Set Strike Alert
       </button>
     );
   }
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Bell className="w-5 h-5 text-deep-sea-accent" />
-          <h3 className="text-lg font-bold text-white">Strike Alerts</h3>
+    <div className="rounded-2xl border border-surf-border bg-surf-surface/80 backdrop-blur-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-surf-border">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-surf-accent/15">
+            <Bell className="w-4 h-4 text-surf-accent" />
+          </div>
+          <h3 className="font-semibold text-white">Strike Alerts</h3>
         </div>
         <button
           onClick={() => setIsOpen(false)}
-          className="text-slate-400 hover:text-white"
+          className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-surf-surface-elevated transition-colors"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
       {submitted ? (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-deep-sea-accent-green/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Mail className="w-8 h-8 text-deep-sea-accent-green" />
+        <div className="p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-surf-emerald/20 flex items-center justify-center mx-auto mb-4">
+            <Check className="w-7 h-7 text-surf-emerald" />
           </div>
-          <p className="text-white font-semibold mb-2">Alert Set!</p>
-          <p className="text-slate-400 text-sm">
-            We&apos;ll notify you when a Prime Strike matches your criteria.
-          </p>
+          <p className="font-semibold text-white mb-1">Alert set</p>
+          <p className="text-sm text-slate-500">We&apos;ll email you when a Prime Strike matches.</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Email Address
-            </label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-deep-sea-accent"
-              placeholder="your@email.com"
+              className="w-full px-4 py-2.5 rounded-xl bg-surf-bg border border-surf-border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-surf-accent/50 focus:border-surf-accent/50 transition-all"
+              placeholder="you@email.com"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Destination
-            </label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Destination</label>
             <input
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               required
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-deep-sea-accent"
-              placeholder="e.g., Pipeline, Oahu"
+              className="w-full px-4 py-2.5 rounded-xl bg-surf-bg border border-surf-border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-surf-accent/50 focus:border-surf-accent/50 transition-all"
+              placeholder="e.g. Pipeline, Oahu"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Origin Airport Code
-            </label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Origin airport</label>
             <input
               type="text"
               value={originCode}
               onChange={(e) => setOriginCode(e.target.value.toUpperCase())}
               required
               maxLength={3}
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-deep-sea-accent"
+              className="w-full px-4 py-2.5 rounded-xl bg-surf-bg border border-surf-border text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-surf-accent/50 focus:border-surf-accent/50 transition-all"
               placeholder="LAX"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Max Flight Price (USD)
-            </label>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">Max price (USD)</label>
             <input
               type="number"
               value={maxPrice}
               onChange={(e) => setMaxPrice(Number(e.target.value))}
               required
               min={0}
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-deep-sea-accent"
+              className="w-full px-4 py-2.5 rounded-xl bg-surf-bg border border-surf-border text-white focus:outline-none focus:ring-2 focus:ring-surf-accent/50 focus:border-surf-accent/50 transition-all"
             />
           </div>
-
-          <div className="bg-slate-900/50 rounded-lg p-3 text-xs text-slate-400">
-            <p className="mb-1">Alert triggers when:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Swell &gt; 3ft AND Period &gt; 10s</li>
-              <li>Flight price drops below ${maxPrice}</li>
+          <div className="rounded-xl bg-surf-bg/60 border border-surf-border/50 p-3 text-xs text-slate-500">
+            <p className="font-medium text-slate-400 mb-1">Triggers when:</p>
+            <ul className="space-y-0.5">
+              <li>• Swell &gt; 3ft and period &gt; 10s</li>
+              <li>• Flight drops below ${maxPrice}</li>
             </ul>
           </div>
-
           <button
             type="submit"
-            className="w-full bg-deep-sea-accent hover:bg-deep-sea-accent/90 text-white font-semibold py-3 rounded-lg transition-all"
+            className="w-full py-3 rounded-xl bg-surf-accent hover:bg-surf-accent/90 text-surf-bg font-semibold transition-colors"
           >
-            Set Alert
+            Set alert
           </button>
         </form>
       )}
     </div>
   );
 }
-

@@ -128,3 +128,4 @@ Add some test destinations to Supabase:
 
 Your SwellFare MVP is deployed and ready! Time to catch some waves! 🏄‍♂️
 
+

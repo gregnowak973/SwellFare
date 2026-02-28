@@ -119,3 +119,4 @@ When you see "No deals found", check the error message. It now includes:
 
 The debugging will help identify exactly what's wrong! 🔍
 
+

@@ -12,12 +12,11 @@ export interface BoardBagFee {
   policyNotes?: string;
 }
 
-// Top 15 international airlines board bag fees
 const BOARD_BAG_FEES: BoardBagFee[] = [
   { airlineCode: 'UA', airlineName: 'United Airlines', feeOneWay: 200, feeRoundTrip: 400, currency: 'USD', policyNotes: 'Each way, applies to oversized bags' },
   { airlineCode: 'AA', airlineName: 'American Airlines', feeOneWay: 150, feeRoundTrip: 300, currency: 'USD', policyNotes: 'Each way for surfboards' },
   { airlineCode: 'DL', airlineName: 'Delta Air Lines', feeOneWay: 200, feeRoundTrip: 400, currency: 'USD', policyNotes: 'Each way, must be in board bag' },
-  { airlineCode: 'BA', airlineName: 'British Airways', feeOneWay: 75, feeRoundTrip: 150, currency: 'GBP', policyNotes: 'Included in checked baggage allowance if under weight' },
+  { airlineCode: 'BA', airlineName: 'British Airways', feeOneWay: 75, feeRoundTrip: 150, currency: 'GBP', policyNotes: 'Included in checked baggage if under weight' },
   { airlineCode: 'LH', airlineName: 'Lufthansa', feeOneWay: 100, feeRoundTrip: 200, currency: 'EUR', policyNotes: 'Each way, subject to size restrictions' },
   { airlineCode: 'AF', airlineName: 'Air France', feeOneWay: 100, feeRoundTrip: 200, currency: 'EUR', policyNotes: 'Each way for oversized sports equipment' },
   { airlineCode: 'QF', airlineName: 'Qantas', feeOneWay: 150, feeRoundTrip: 300, currency: 'AUD', policyNotes: 'Each way, must be properly packed' },
@@ -35,115 +34,99 @@ export function BoardBagCalculator() {
   const [selectedAirline, setSelectedAirline] = useState<BoardBagFee | null>(null);
   const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('round-trip');
 
-  const handleAirlineChange = (airlineCode: string) => {
-    const airline = BOARD_BAG_FEES.find(fee => fee.airlineCode === airlineCode);
-    setSelectedAirline(airline || null);
-  };
-
-  const calculateTotalFee = () => {
-    if (!selectedAirline) return 0;
-    return tripType === 'round-trip' 
-      ? selectedAirline.feeRoundTrip 
-      : selectedAirline.feeOneWay;
-  };
+  const totalFee = selectedAirline
+    ? tripType === 'round-trip' ? selectedAirline.feeRoundTrip : selectedAirline.feeOneWay
+    : 0;
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Plane className="w-5 h-5 text-deep-sea-accent" />
-        <h2 className="text-xl font-bold text-white">Board Bag Calculator</h2>
-      </div>
-      <p className="text-sm text-slate-400 mb-6">
-        Calculate the hidden cost of traveling with your surfboard
-      </p>
-
-      {/* Airline Selector */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Select Airline
-        </label>
-        <select
-          value={selectedAirline?.airlineCode || ''}
-          onChange={(e) => handleAirlineChange(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-deep-sea-accent"
-        >
-          <option value="">Choose an airline...</option>
-          {BOARD_BAG_FEES.map(airline => (
-            <option key={airline.airlineCode} value={airline.airlineCode}>
-              {airline.airlineName}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Trip Type Selector */}
-      {selectedAirline && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Trip Type
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTripType('one-way')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-                tripType === 'one-way'
-                  ? 'bg-deep-sea-accent text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              One-Way
-            </button>
-            <button
-              onClick={() => setTripType('round-trip')}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
-                tripType === 'round-trip'
-                  ? 'bg-deep-sea-accent text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              }`}
-            >
-              Round-Trip
-            </button>
+    <div className="rounded-2xl border border-surf-border bg-surf-surface/80 backdrop-blur-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-surf-border">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-surf-accent/15">
+            <Plane className="w-5 h-5 text-surf-accent" />
           </div>
+          <h2 className="text-lg font-semibold text-white">Board Bag Calculator</h2>
         </div>
-      )}
+        <p className="text-sm text-slate-500">Hidden cost of traveling with your board</p>
+      </div>
 
-      {/* Fee Display */}
-      {selectedAirline && (
-        <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-slate-400">Total Board Bag Fee</span>
-            <div className="flex items-baseline gap-2">
-              <DollarSign className="w-5 h-5 text-deep-sea-accent-green" />
-              <span className="text-3xl font-bold text-deep-sea-accent-green">
-                {selectedAirline.currency} {calculateTotalFee().toLocaleString()}
-              </span>
-            </div>
-          </div>
-          
-          <div className="text-xs text-slate-500 mt-2">
-            {tripType === 'round-trip' 
-              ? `${selectedAirline.currency} ${selectedAirline.feeOneWay} each way`
-              : 'One-way fee'
-            }
-          </div>
+      <div className="p-6 space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-slate-400 mb-2">Airline</label>
+          <select
+            value={selectedAirline?.airlineCode || ''}
+            onChange={(e) => {
+              const airline = BOARD_BAG_FEES.find((f) => f.airlineCode === e.target.value);
+              setSelectedAirline(airline || null);
+            }}
+            className="w-full px-4 py-3 rounded-xl bg-surf-bg border border-surf-border text-white focus:outline-none focus:ring-2 focus:ring-surf-accent/50 focus:border-surf-accent/50 transition-all appearance-none"
+          >
+            <option value="">Choose airline...</option>
+            {BOARD_BAG_FEES.map((a) => (
+              <option key={a.airlineCode} value={a.airlineCode}>
+                {a.airlineName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {selectedAirline.policyNotes && (
-            <div className="mt-4 pt-4 border-t border-slate-700">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-slate-400">{selectedAirline.policyNotes}</p>
+        {selectedAirline && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Trip type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setTripType('one-way')}
+                  className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                    tripType === 'one-way'
+                      ? 'bg-surf-accent text-surf-bg'
+                      : 'bg-surf-bg/60 border border-surf-border text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  One-way
+                </button>
+                <button
+                  onClick={() => setTripType('round-trip')}
+                  className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                    tripType === 'round-trip'
+                      ? 'bg-surf-accent text-surf-bg'
+                      : 'bg-surf-bg/60 border border-surf-border text-slate-400 hover:text-slate-300'
+                  }`}
+                >
+                  Round-trip
+                </button>
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {!selectedAirline && (
-        <div className="text-center py-8 text-slate-500 text-sm">
-          Select an airline to see board bag fees
-        </div>
-      )}
+            <div className="rounded-xl bg-surf-bg/60 border border-surf-border p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-500 text-sm">Total board bag fee</span>
+                <div className="flex items-baseline gap-2">
+                  <DollarSign className="w-5 h-5 text-surf-emerald" />
+                  <span className="text-2xl font-bold text-surf-emerald">
+                    {selectedAirline.currency} {totalFee.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                {tripType === 'round-trip' ? `${selectedAirline.currency} ${selectedAirline.feeOneWay} each way` : 'One-way fee'}
+              </p>
+              {selectedAirline.policyNotes && (
+                <div className="mt-4 pt-4 border-t border-surf-border flex gap-2">
+                  <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-500">{selectedAirline.policyNotes}</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {!selectedAirline && (
+          <div className="py-12 text-center text-slate-500 text-sm">
+            Select an airline to see board bag fees
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

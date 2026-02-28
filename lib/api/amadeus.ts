@@ -60,6 +60,10 @@ export async function getAmadeusToken(config: AmadeusConfig): Promise<string> {
     credentials = btoa(`${config.clientId}:${config.clientSecret}`);
   }
 
+  // Add timeout to prevent hanging requests
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
   const response = await fetch(`${baseUrl}/v1/security/oauth2/token`, {
     method: 'POST',
     headers: {
@@ -67,7 +71,10 @@ export async function getAmadeusToken(config: AmadeusConfig): Promise<string> {
       'Authorization': `Basic ${credentials}`,
     },
     body: 'grant_type=client_credentials',
+    signal: controller.signal,
   });
+
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     throw new Error(`Amadeus token error: ${response.statusText}`);
@@ -115,11 +122,18 @@ export async function searchFlights(
   }
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
     const response = await fetch(`${baseUrl}/v2/shopping/flight-offers?${searchParams}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     // Check response status BEFORE parsing JSON
     if (!response.ok) {
@@ -147,9 +161,17 @@ export async function searchFlights(
     const data = await response.json();
     return data.data || [];
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching flight data:', error);
+      console.error('Error fetching flight data:', errorMessage);
     }
+    
+    // Handle timeout/abort errors
+    if (error instanceof Error && (error.name === 'AbortError' || errorMessage.includes('aborted'))) {
+      throw new Error('Amadeus API request timed out. The API may be slow or unavailable.');
+    }
+    
     throw error;
   }
 }

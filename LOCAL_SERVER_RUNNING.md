@@ -43,3 +43,4 @@ Your `.env.local` file is set up with Supabase credentials. Add your API keys:
 
 The app will work with mock data until you add real API keys.
 
+

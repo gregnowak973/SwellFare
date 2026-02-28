@@ -6,334 +6,111 @@ import { DesireToggle } from './DesireToggle';
 import { SurfFareFeed } from './SurfFareFeed';
 import { BoardBagCalculator } from './BoardBagCalculator';
 import { StrikeAlerts } from './StrikeAlerts';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { SurfDesire } from '@/lib/surfLogic';
+import { Waves, MapPin, Activity } from 'lucide-react';
 
-// Mock data - fallback when API is not available
-const mockDeals: DealCardProps[] = [
-  // Prime Strikes (Swell > 3ft AND Period > 10s AND Flight < $500)
+const SurfMap = dynamic(
+  () => import('./SurfMap').then((mod) => ({ default: mod.SurfMap })),
   {
-    destination: 'Nosara, Costa Rica',
-    airportCode: 'SJO',
-    price: 420,
-    currency: 'USD',
-    swellHeight: 1.2, // ~4ft
-    swellPeriod: 12,
-    swellType: 'log',
-    valueScore: 0.034,
-    departureDate: '2024-02-16',
-    returnDate: '2024-02-23',
-    windSpeed: 10,
-    windDirection: 90,
-  },
-  {
-    destination: 'Malibu, California',
-    airportCode: 'LAX',
-    price: 380,
-    currency: 'USD',
-    swellHeight: 1.0, // ~3.3ft
-    swellPeriod: 11,
-    swellType: 'log',
-    valueScore: 0.029,
-    departureDate: '2024-02-18',
-    returnDate: '2024-02-25',
-    windSpeed: 8,
-    windDirection: 270,
-  },
-  {
-    destination: 'Tamarindo, Costa Rica',
-    airportCode: 'LIR',
-    price: 450,
-    currency: 'USD',
-    swellHeight: 1.1, // ~3.6ft
-    swellPeriod: 13,
-    swellType: 'barrel',
-    valueScore: 0.032,
-    departureDate: '2024-02-20',
-    returnDate: '2024-02-27',
-    windSpeed: 12,
-    windDirection: 225,
-  },
-  // Regular deals
-  {
-    destination: 'Pipeline, Oahu',
-    airportCode: 'HNL',
-    price: 650,
-    currency: 'USD',
-    swellHeight: 2.1,
-    swellPeriod: 14,
-    swellType: 'barrel',
-    valueScore: 0.045,
-    departureDate: '2024-02-15',
-    returnDate: '2024-02-22',
-    windSpeed: 12,
-    windDirection: 180,
-  },
-  {
-    destination: 'Raglan, New Zealand',
-    airportCode: 'AKL',
-    price: 680,
-    currency: 'USD',
-    swellHeight: 1.8,
-    swellPeriod: 13,
-    swellType: 'barrel',
-    valueScore: 0.034,
-    departureDate: '2024-02-20',
-    returnDate: '2024-02-27',
-    windSpeed: 15,
-    windDirection: 200,
-  },
-  {
-    destination: 'Uluwatu, Bali',
-    airportCode: 'DPS',
-    price: 720,
-    currency: 'USD',
-    swellHeight: 2.0,
-    swellPeriod: 14,
-    swellType: 'barrel',
-    valueScore: 0.039,
-    departureDate: '2024-02-22',
-    returnDate: '2024-03-01',
-    windSpeed: 10,
-    windDirection: 225,
-  },
-  {
-    destination: 'Ericeira, Portugal',
-    airportCode: 'LIS',
-    price: 580,
-    currency: 'USD',
-    swellHeight: 1.5,
-    swellPeriod: 12,
-    swellType: 'barrel',
-    valueScore: 0.031,
-    departureDate: '2024-02-19',
-    returnDate: '2024-02-26',
-    windSpeed: 14,
-    windDirection: 270,
-  },
-  {
-    destination: 'Byron Bay, Australia',
-    airportCode: 'BNE',
-    price: 890,
-    currency: 'USD',
-    swellHeight: 0.8,
-    swellPeriod: 9,
-    swellType: 'log',
-    valueScore: 0.008,
-    departureDate: '2024-02-25',
-    returnDate: '2024-03-04',
-    windSpeed: 8,
-    windDirection: 135,
-  },
-  {
-    destination: 'Jeffreys Bay, South Africa',
-    airportCode: 'CPT',
-    price: 920,
-    currency: 'USD',
-    swellHeight: 2.3,
-    swellPeriod: 15,
-    swellType: 'barrel',
-    valueScore: 0.038,
-    departureDate: '2024-02-22',
-    returnDate: '2024-03-01',
-    windSpeed: 18,
-    windDirection: 220,
-  },
-  {
-    destination: 'Canggu, Bali',
-    airportCode: 'DPS',
-    price: 750,
-    currency: 'USD',
-    swellHeight: 0.9,
-    swellPeriod: 8,
-    swellType: 'log',
-    valueScore: 0.010,
-    departureDate: '2024-02-24',
-    returnDate: '2024-03-03',
-    windSpeed: 7,
-    windDirection: 225,
-  },
-];
+    ssr: false,
+    loading: () => (
+      <div className="h-[560px] w-full rounded-2xl bg-surf-surface border border-surf-border flex items-center justify-center overflow-hidden">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-surf-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm font-medium">Loading map...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 export function Dashboard() {
   const [desire, setDesire] = useState<SurfDesire>('barrel');
-  // Cache deals for both types separately to avoid reloading when switching
   const [barrelDeals, setBarrelDeals] = useState<DealCardProps[]>([]);
   const [logDeals, setLogDeals] = useState<DealCardProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadedTypes, setLoadedTypes] = useState<Set<'barrel' | 'log'>>(new Set());
 
-  // Get current deals based on desire - instant switch, no re-fetching
   const deals = useMemo(() => {
     const cached = desire === 'barrel' ? barrelDeals : logDeals;
-    if (cached.length > 0) {
-      return cached;
-    }
-    // Fallback to mock data while loading
-    return mockDeals.filter(deal => deal.swellType === desire);
+    return cached;
   }, [desire, barrelDeals, logDeals]);
 
-  // Fetch deals for both types on initial load only
   useEffect(() => {
     let isMounted = true;
-    const controllers = {
-      barrel: new AbortController(),
-      log: new AbortController(),
-    };
-    const timeouts: { barrel: NodeJS.Timeout | null; log: NodeJS.Timeout | null } = {
-      barrel: null,
-      log: null,
-    };
+    const controllers = { barrel: new AbortController(), log: new AbortController() };
+    const timeouts: { barrel: NodeJS.Timeout | null; log: NodeJS.Timeout | null } = { barrel: null, log: null };
 
     async function fetchDealsForType(type: SurfDesire) {
       try {
         if (!isMounted) return;
-        
-        // Only show loading on initial load (when nothing is cached yet)
-        if (!loadedTypes.has('barrel') && !loadedTypes.has('log')) {
-          setLoading(true);
-        }
+        if (!loadedTypes.has('barrel') && !loadedTypes.has('log')) setLoading(true);
         setError(null);
-        
-        // Add timeout to prevent hanging
-        timeouts[type] = setTimeout(() => {
-          if (isMounted) {
-            controllers[type].abort();
-          }
-        }, 30000); // 30 second timeout
+        timeouts[type] = setTimeout(() => { if (isMounted) controllers[type].abort(); }, 30000);
 
-        // Fetch with cache=false to force API calls if database cache is empty
-        const timestamp = Date.now();
-        const response = await fetch(`/api/deals?desire=${type}&limit=10&cache=false&_t=${timestamp}`, {
+        const response = await fetch(`/api/deals?desire=${type}&limit=10&cache=false&_t=${Date.now()}`, {
           signal: controllers[type].signal,
           cache: 'no-store',
         });
-        
-        if (timeouts[type]) {
-          clearTimeout(timeouts[type]!);
-          timeouts[type] = null;
-        }
 
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          throw new Error(`API error (${response.status}): ${errorText || response.statusText}`);
-        }
+        if (timeouts[type]) { clearTimeout(timeouts[type]!); timeouts[type] = null; }
+        if (!response.ok) throw new Error(`API error (${response.status})`);
 
         const data = await response.json();
-        
         if (!isMounted) return;
 
-        if (data.deals && data.deals.length > 0) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`✅ Setting real deals for ${type}:`, data.deals.length);
-          }
-          if (type === 'barrel') {
-            setBarrelDeals(data.deals);
-          } else {
-            setLogDeals(data.deals);
-          }
-          setError(null);
+        if (data.deals) {
+          if (type === 'barrel') setBarrelDeals(data.deals);
+          else setLogDeals(data.deals);
+          if (data.deals.length === 0 && type === desire) {
+            setError(data.debug?.message || data.message || 'No deals found.');
+          } else setError(null);
         } else {
-          // Fall back to mock data if API returns no deals
-          const filteredMock = mockDeals.filter(deal => deal.swellType === type);
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`⚠️ Using mock data for ${type}:`, filteredMock.length);
-          }
-          
-          if (type === 'barrel') {
-            setBarrelDeals(filteredMock);
-          } else {
-            setLogDeals(filteredMock);
-          }
-          
-          // Only show error if it's for the currently selected type
-          if (type === desire) {
-            let errorMsg = 'No deals found. Showing sample data.';
-            if (data.debug?.message) {
-              errorMsg = data.debug.message;
-            } else if (data.message) {
-              errorMsg = data.message;
-            }
-            setError(errorMsg);
-          }
+          if (type === 'barrel') setBarrelDeals([]);
+          else setLogDeals([]);
+          if (type === desire) setError('API returned unexpected data format.');
         }
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(`❌ Error fetching deals for ${type}:`, err);
-        }
         if (!isMounted) return;
-        
-        // Fall back to mock data on error
-        const filteredMock = mockDeals.filter(deal => deal.swellType === type);
-        if (type === 'barrel') {
-          setBarrelDeals(filteredMock);
-        } else {
-          setLogDeals(filteredMock);
-        }
-        
-        // Only show error if it's for the currently selected type
+        if (type === 'barrel') setBarrelDeals([]);
+        else setLogDeals([]);
+        setLoadedTypes(prev => new Set([...prev, type]));
         if (type === desire) {
-          if (err instanceof Error && err.name === 'AbortError') {
-            setError('Request timed out. Showing sample data. API may be slow or unavailable.');
-          } else {
-            setError('Failed to load real-time data. Showing sample data.');
-          }
+          setError(err instanceof Error && err.name === 'AbortError' ? 'Request timed out.' : 'Failed to load data. Check API keys.');
         }
       } finally {
-        // Mark this type as loaded
         setLoadedTypes(prev => {
           const updated = new Set([...prev, type]);
-          if (isMounted && updated.size === 2) {
-            // Both types loaded, hide loading
-            setLoading(false);
-          } else if (isMounted && updated.size === 1 && type === desire) {
-            // At least one type loaded, and it's the current desire, hide loading
-            setLoading(false);
-          }
+          if (isMounted && (updated.size === 2 || (updated.size === 1 && type === desire))) setLoading(false);
           return updated;
         });
       }
     }
 
-    // Fetch both types in parallel on initial load
     fetchDealsForType('barrel');
     fetchDealsForType('log');
 
-    // Cleanup function
     return () => {
       isMounted = false;
-      if (timeouts.barrel) {
-        clearTimeout(timeouts.barrel);
-      }
-      if (timeouts.log) {
-        clearTimeout(timeouts.log);
-      }
+      if (timeouts.barrel) clearTimeout(timeouts.barrel);
+      if (timeouts.log) clearTimeout(timeouts.log);
       controllers.barrel.abort();
       controllers.log.abort();
     };
-  }, []); // Only run once on mount
+  }, []);
 
-  // Update error message when switching filters - NO API CALLS, just UI updates
   useEffect(() => {
-    // This effect ONLY runs when switching filters (desire changes)
-    // It does NOT trigger any API calls - data is already cached
     const currentDeals = desire === 'barrel' ? barrelDeals : logDeals;
-    
-    // Ensure loading is always false when switching (data is cached)
     setLoading(false);
-    
     if (currentDeals.length === 0 && loadedTypes.has(desire)) {
-      // This type was loaded but has no deals
       const otherType = desire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels';
-      setError(`No ${desire} deals found. Try switching to "${otherType}" for more options.`);
-    } else if (currentDeals.length > 0) {
-      // We have data, clear error
-      setError(null);
-    }
+      setError(`No ${desire} deals found. Try "${otherType}" for more options.`);
+    } else if (currentDeals.length > 0) setError(null);
   }, [desire, barrelDeals, logDeals, loadedTypes]);
 
-  // Filter deals by current surf desire and get top 10
-  // The deals array already contains the correct type (from cache), but filter to be safe
   const filteredDeals = useMemo(() => {
     return deals
       .filter(deal => deal.swellType === desire)
@@ -341,94 +118,123 @@ export function Dashboard() {
       .slice(0, 10);
   }, [deals, desire]);
 
-  // Debug logging (only in development)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Dashboard state:', {
-        desire,
-        dealsCount: deals.length,
-        filteredCount: filteredDeals.length,
-        loading,
-        error,
-      });
-    }
-  }, [desire, deals, filteredDeals, loading, error]);
-
   return (
-    <div className="min-h-screen bg-deep-sea-bg">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-bold text-white mb-2">SwellFare</h1>
-          <p className="text-slate-400 text-lg">
-            Discovery engine for surfers: Find cheap flights to perfect swells
-          </p>
-          {error && (
-            <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <span className="text-yellow-400 text-lg">⚠️</span>
-                <div className="flex-1">
-                  <p className="text-yellow-400 text-sm font-medium mb-1">No Real-Time Deals Found</p>
-                  <p className="text-yellow-300/80 text-sm">{error}</p>
-                  {error.includes('Try switching') && (
-                    <button
-                      onClick={() => setDesire(desire === 'barrel' ? 'log' : 'barrel')}
-                      className="mt-2 px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 rounded-md text-yellow-400 text-sm font-medium transition-colors"
-                    >
-                      Switch to {desire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          {loading && (
-            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg animate-pulse">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-blue-400 text-sm">
-                  Loading real-time surf and flight data for <strong>{desire === 'barrel' ? 'Heaving Barrels' : 'Soft & Longboard'}</strong>... This may take 3-10 seconds.
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="mt-2 text-xs text-slate-500">
-            Showing {filteredDeals.length} {desire === 'barrel' ? 'barrel' : 'log'} deals
-          </div>
-        </div>
+    <div className="min-h-screen bg-surf-bg">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden border-b border-surf-border/50">
+        <div className="absolute inset-0 bg-gradient-to-br from-surf-accent/5 via-transparent to-surf-emerald/5" />
+        <div className="absolute top-20 -right-20 w-96 h-96 bg-surf-accent/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 -left-20 w-72 h-72 bg-surf-emerald/10 rounded-full blur-3xl" />
 
-        {/* Top Row: Skill Filter and Strike Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Skill Filter
-              </label>
-              <DesireToggle currentDesire={desire} onDesireChange={setDesire} />
-              <p className="text-xs text-slate-500 mt-2">
-                {desire === 'barrel' 
-                  ? 'Shows destinations with larger, more powerful waves (Height > 0.8m, Period > 9s)'
-                  : 'Shows destinations with smaller, longer-period waves (Height < 1.8m, Period 6-14s)'
-                }
+        <div className="relative container mx-auto px-6 py-12 md:py-16 max-w-7xl">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surf-accent/10 border border-surf-accent/20 text-surf-accent text-sm font-medium mb-6">
+                <Waves className="w-4 h-4" />
+                Real-time swell & flight data
+              </div>
+              <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight mb-4">
+                Find flights to
+                <span className="bg-gradient-to-r from-surf-accent to-surf-emerald bg-clip-text text-transparent"> perfect swells</span>
+              </h1>
+              <p className="text-lg md:text-xl text-slate-400 max-w-xl leading-relaxed">
+                Match your style with cheap flights to surf destinations. Barrels or longboard—we&apos;ve got you covered.
               </p>
             </div>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/map"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-surf-surface border border-surf-border hover:border-surf-accent/50 hover:bg-surf-surface-elevated text-white font-medium text-sm transition-all duration-200"
+              >
+                <MapPin className="w-4 h-4 text-surf-accent" />
+                Full map view
+              </Link>
+              <Link
+                href="/debug"
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-surf-surface/50 border border-surf-border/50 hover:bg-surf-surface text-slate-400 hover:text-slate-300 text-sm transition-colors"
+              >
+                <Activity className="w-4 h-4" />
+                Debug
+              </Link>
+            </div>
           </div>
-          <div>
-            <StrikeAlerts />
+
+          {/* Filter + Strike Alerts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-12">
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-slate-400 mb-3">Your style</label>
+              <DesireToggle currentDesire={desire} onDesireChange={setDesire} />
+              <p className="text-xs text-slate-500 mt-2">
+                {desire === 'barrel' ? 'Bigger waves • Height > 0.8m • Period > 9s' : 'Mellow waves • Height < 1.8m • Period 6–14s'}
+              </p>
+            </div>
+            <div>
+              <StrikeAlerts />
+            </div>
           </div>
-        </div>
 
-        {/* Surf-Fare Feed */}
-        <div className="mb-8 transition-opacity duration-300">
-          <SurfFareFeed deals={filteredDeals} />
-        </div>
+          {error && (
+            <div className="mt-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+              <span className="text-amber-400 text-xl">⚠</span>
+              <div className="flex-1">
+                <p className="text-amber-200 font-medium text-sm">No deals found</p>
+                <p className="text-amber-200/80 text-sm mt-0.5">{error}</p>
+                {error.includes('Try') && (
+                  <button
+                    onClick={() => setDesire(desire === 'barrel' ? 'log' : 'barrel')}
+                    className="mt-3 px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-sm font-medium"
+                  >
+                    Switch to {desire === 'barrel' ? 'Soft & Longboard' : 'Heaving Barrels'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
-        {/* Board Bag Calculator */}
-        <div className="mb-8">
-          <BoardBagCalculator />
+          {loading && (
+            <div className="mt-6 p-4 rounded-xl bg-surf-accent/10 border border-surf-accent/20 flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-surf-accent border-t-transparent rounded-full animate-spin" />
+              <p className="text-surf-accent text-sm">
+                Loading surf & flight data for <strong>{desire === 'barrel' ? 'Heaving Barrels' : 'Soft & Longboard'}</strong>...
+              </p>
+            </div>
+          )}
+
+          <p className="mt-4 text-sm text-slate-500">
+            {filteredDeals.length} {desire === 'barrel' ? 'barrel' : 'log'} deals
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-6 py-12 max-w-7xl">
+        <SurfFareFeed deals={filteredDeals} />
+
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-5">
+            <BoardBagCalculator />
+          </div>
+          <div className="lg:col-span-7">
+            <div className="h-[560px] w-full rounded-2xl overflow-hidden border border-surf-border bg-surf-surface">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-surf-border bg-surf-surface-elevated">
+                <span className="text-sm font-medium text-slate-300">
+                  {filteredDeals.length} destinations
+                </span>
+                <span className="text-xs text-slate-500">Click a marker to scroll to deal</span>
+              </div>
+              <SurfMap
+                deals={filteredDeals}
+                filterType={desire}
+                onMarkerClick={(destination) => {
+                  const slug = destination.replace(/[\s,]+/g, '-');
+                  const el = document.getElementById(`deal-${slug}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

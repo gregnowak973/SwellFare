@@ -24,3 +24,4 @@ VALUES
   ('Cloudbreak, Fiji', 'NAN', -18.1667, 177.4500, 'Pacific/Fiji', 225)
 ON CONFLICT (airport_code) DO NOTHING;
 
+

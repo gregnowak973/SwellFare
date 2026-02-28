@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCurrentSwell } from '@/lib/api/stormglass';
-import { getCheapestFlight } from '@/lib/api/amadeus';
+import { checkSwellWindow } from '@/lib/api/swellWindow';
+import { getCheapestFlight, searchFlights } from '@/lib/api/amadeus';
 import { GOLDEN_20_DESTINATIONS } from '@/lib/destinations';
-import { categorizeSwell } from '@/lib/surfLogic';
+import { isBarrelCondition, isLogCondition } from '@/lib/surfLogic';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,125 +17,163 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const desire = (searchParams.get('desire') || 'barrel') as 'barrel' | 'log';
-    const limit = parseInt(searchParams.get('limit') || '5');
+    const detailed = searchParams.get('detailed') === 'true';
 
     const stormglassKey = process.env.STORMGLASS_API_KEY;
     const amadeusClientId = process.env.AMADEUS_CLIENT_ID;
     const amadeusClientSecret = process.env.AMADEUS_CLIENT_SECRET;
 
-    if (!stormglassKey || !amadeusClientId || !amadeusClientSecret) {
-      return NextResponse.json({
-        error: 'API keys not configured',
-      }, { status: 400 });
-    }
+    const results: any[] = [];
 
-    const debugInfo = [];
-    const destinationsToCheck = GOLDEN_20_DESTINATIONS.slice(0, limit);
-
-    for (const dest of destinationsToCheck) {
-      const destDebug: any = {
+    // Check destinations in smaller batches to avoid rate limits
+    const destinationsToCheck = GOLDEN_20_DESTINATIONS.slice(0, 10); // Limit to 10 for debug page
+    const destinationPromises = destinationsToCheck.map(async (dest, index) => {
+      // Add delay between requests to avoid rate limiting
+      if (index > 0) {
+        await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+      }
+      const result: any = {
         destination: dest.name,
         airportCode: dest.airportCode,
-        checks: {},
+        latitude: dest.latitude,
+        longitude: dest.longitude,
+        status: 'error',
+        error: null,
+        reason: null,
+        swellHeight: null,
+        swellPeriod: null,
+        swellType: null,
+        hasGoodSurf: false,
+        windowChecked: false,
+        bestConditions: null,
       };
 
       try {
-        // Check Stormglass
-        const swell = await fetchCurrentSwell(
-          dest.latitude,
-          dest.longitude,
-          { apiKey: stormglassKey }
-        );
+        // Check 6-day window for good surf (optimized for speed)
+        if (stormglassKey) {
+          const windowResult = await checkSwellWindow(
+            dest.latitude,
+            dest.longitude,
+            3, // days back (reduced from 7)
+            3, // days forward (reduced from 7)
+            desire,
+            { apiKey: stormglassKey }
+          );
 
-        destDebug.checks.stormglass = swell
-          ? {
-              success: true,
-              height: swell.height,
-              period: swell.period,
-              windSpeed: swell.windSpeed,
-              windDirection: swell.windDirection,
+          result.windowChecked = true;
+          result.hasGoodSurf = windowResult.hasGoodSurf;
+
+          if (windowResult.bestConditions) {
+            result.swellHeight = windowResult.bestConditions.height;
+            result.swellPeriod = windowResult.bestConditions.period;
+            result.bestConditions = {
+              height: windowResult.bestConditions.height,
+              period: windowResult.bestConditions.period,
+            };
+
+            // Determine type
+            const barrelMatch = isBarrelCondition(windowResult.bestConditions);
+            const logMatch = isLogCondition(windowResult.bestConditions);
+            
+            if (barrelMatch && logMatch) {
+              result.swellType = windowResult.bestConditions.height > 1.0 ? 'barrel' : 'log';
+            } else if (barrelMatch) {
+              result.swellType = 'barrel';
+            } else if (logMatch) {
+              result.swellType = 'log';
+            } else {
+              result.swellType = windowResult.bestConditions.height > 1.0 ? 'barrel' : 'log';
             }
-          : { success: false, error: 'No swell data returned' };
 
-        if (swell) {
-          // Check categorization
-          const categorized = categorizeSwell(swell, desire);
-          destDebug.checks.categorization = {
-            type: categorized.type,
-            isMatch: categorized.isMatch,
-            barrelCondition: swell.height > 1.5 && swell.period > 12,
-            logCondition: swell.height < 1.2 && swell.period >= 8 && swell.period <= 11,
-            actualHeight: swell.height,
-            actualPeriod: swell.period,
-          };
+            // Check if it matches desire
+            const matchesDesire = result.swellType === desire || 
+              (desire === 'barrel' && (windowResult.bestConditions.height > 0.2 || windowResult.bestConditions.period > 5)) ||
+              (desire === 'log' && windowResult.bestConditions.height < 3.5 && windowResult.bestConditions.period > 3);
 
-          // Only check Amadeus if swell matches
-          if (categorized.isMatch) {
+            if (matchesDesire && windowResult.bestConditions.height > 0.1 && windowResult.bestConditions.period > 3) {
+              result.status = 'success';
+              result.reason = `Good ${result.swellType} conditions found in 14-day window`;
+            } else {
+              result.status = 'filtered-out';
+              result.reason = `Conditions don't match ${desire} criteria (Height: ${windowResult.bestConditions.height.toFixed(2)}m, Period: ${windowResult.bestConditions.period.toFixed(1)}s)`;
+            }
+          } else {
+            result.status = 'no-data';
+            result.reason = 'No good surf found in 14-day window';
+          }
+        } else {
+          result.error = 'STORMGLASS_API_KEY not configured';
+          result.reason = 'API key missing';
+        }
+
+        // If detailed, also check for flights
+        if (detailed && result.status === 'success' && amadeusClientId && amadeusClientSecret) {
+          try {
             const departureDate = new Date();
             departureDate.setDate(departureDate.getDate() + 7);
             const returnDate = new Date(departureDate);
             returnDate.setDate(returnDate.getDate() + 7);
 
-            try {
-              const flight = await getCheapestFlight(
-                {
-                  originCode: 'LAX',
-                  destinationCode: dest.airportCode,
-                  departureDate: departureDate.toISOString().split('T')[0],
-                  returnDate: returnDate.toISOString().split('T')[0],
-                  currency: 'USD',
-                },
-                {
-                  clientId: amadeusClientId,
-                  clientSecret: amadeusClientSecret,
-                }
-              );
+            const flights = await searchFlights(
+              {
+                originCode: 'LAX',
+                destinationCode: dest.airportCode,
+                departureDate: departureDate.toISOString().split('T')[0],
+                returnDate: returnDate.toISOString().split('T')[0],
+                currency: 'USD',
+              },
+              {
+                clientId: amadeusClientId,
+                clientSecret: amadeusClientSecret,
+              }
+            );
 
-              destDebug.checks.amadeus = flight
-                ? {
-                    success: true,
-                    price: flight.price.total,
-                    currency: flight.price.currency,
-                  }
-                : { success: false, error: 'No flight found' };
-            } catch (error) {
-              destDebug.checks.amadeus = {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              };
+            if (flights && flights.length > 0) {
+              result.hasFlight = true;
+              result.flightPrice = parseFloat(flights[0].price.total);
+              result.reason += ` | Flight: $${result.flightPrice}`;
+            } else {
+              result.hasFlight = false;
+              result.reason += ' | No flights found';
             }
-          } else {
-            destDebug.checks.amadeus = {
-              skipped: true,
-              reason: 'Swell does not match desire criteria',
-            };
+          } catch (flightError) {
+            result.hasFlight = false;
+            result.flightError = flightError instanceof Error ? flightError.message : 'Unknown error';
           }
         }
       } catch (error) {
-        destDebug.checks.error = error instanceof Error ? error.message : 'Unknown error';
+        result.status = 'error';
+        result.error = error instanceof Error ? error.message : 'Unknown error';
+        result.reason = `Error: ${result.error}`;
       }
 
-      debugInfo.push(destDebug);
-    }
+      return result;
+    });
+
+    const allResults = await Promise.all(destinationPromises);
 
     return NextResponse.json({
       desire,
-      destinationsChecked: limit,
-      debugInfo,
+      timestamp: new Date().toISOString(),
+      results: allResults,
       summary: {
-        withSwellData: debugInfo.filter(d => d.checks.stormglass?.success).length,
-        matchingDesire: debugInfo.filter(d => d.checks.categorization?.isMatch).length,
-        withFlights: debugInfo.filter(d => d.checks.amadeus?.success).length,
-        completeDeals: debugInfo.filter(
-          d => d.checks.stormglass?.success && 
-               d.checks.categorization?.isMatch && 
-               d.checks.amadeus?.success
-        ).length,
+        total: allResults.length,
+        success: allResults.filter(r => r.status === 'success').length,
+        filteredOut: allResults.filter(r => r.status === 'filtered-out').length,
+        noData: allResults.filter(r => r.status === 'no-data').length,
+        errors: allResults.filter(r => r.status === 'error').length,
+        withGoodSurf: allResults.filter(r => r.hasGoodSurf).length,
+        windowChecked: allResults.filter(r => r.windowChecked).length,
+      },
+      apiConfig: {
+        stormglassConfigured: !!stormglassKey,
+        amadeusConfigured: !!(amadeusClientId && amadeusClientSecret),
       },
     });
   } catch (error) {
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
+      results: [],
     }, { status: 500 });
   }
 }

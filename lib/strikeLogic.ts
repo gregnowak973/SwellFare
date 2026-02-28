@@ -61,3 +61,4 @@ export function calculateStrikeScore(conditions: StrikeConditions): number {
   return Math.round(heightScore + periodScore + priceScore);
 }
 
+

@@ -12,42 +12,41 @@ export function DesireToggle({ currentDesire, onDesireChange }: DesireToggleProp
   const isBarrel = currentDesire === 'barrel';
 
   return (
-    <div className="flex items-center gap-4 p-1 bg-slate-800 rounded-lg border border-slate-700 w-fit">
+    <div className="inline-flex p-1 rounded-2xl bg-surf-surface border border-surf-border">
       <button
         onClick={() => onDesireChange('barrel')}
         disabled={isBarrel}
         className={`
-          flex items-center gap-2 px-6 py-3 rounded-md font-semibold transition-all duration-200
-          ${isBarrel 
-            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10 scale-105' 
-            : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+          flex items-center gap-2.5 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200
+          ${isBarrel
+            ? 'bg-surf-accent/15 text-surf-accent border border-surf-accent/30 shadow-soft'
+            : 'text-slate-500 hover:text-slate-300 hover:bg-surf-surface-elevated/50'
           }
-          disabled:cursor-not-allowed
+          disabled:cursor-default
         `}
         aria-pressed={isBarrel}
-        aria-label="Heaving Barrels filter"
+        aria-label="Heaving Barrels"
       >
         <Zap className="w-5 h-5" />
-        <span>Heaving Barrels</span>
+        Heaving Barrels
       </button>
       <button
         onClick={() => onDesireChange('log')}
         disabled={!isBarrel}
         className={`
-          flex items-center gap-2 px-6 py-3 rounded-md font-semibold transition-all duration-200
-          ${!isBarrel 
-            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg shadow-emerald-500/10 scale-105' 
-            : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+          flex items-center gap-2.5 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200
+          ${!isBarrel
+            ? 'bg-surf-emerald/15 text-surf-emerald border border-surf-emerald/30 shadow-soft'
+            : 'text-slate-500 hover:text-slate-300 hover:bg-surf-surface-elevated/50'
           }
-          disabled:cursor-not-allowed
+          disabled:cursor-default
         `}
         aria-pressed={!isBarrel}
-        aria-label="Soft & Longboard filter"
+        aria-label="Soft & Longboard"
       >
         <Waves className="w-5 h-5" />
-        <span>Soft & Longboard</span>
+        Soft & Longboard
       </button>
     </div>
   );
 }
-
